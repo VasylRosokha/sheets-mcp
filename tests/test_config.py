@@ -54,3 +54,39 @@ def test_rejects_non_numeric_port() -> None:
 def test_rejects_unknown_log_level() -> None:
     with pytest.raises(ConfigError, match="LOG_LEVEL must be one of"):
         Settings.from_env({"MCP_API_KEY": "k", "LOG_LEVEL": "chatty"})
+
+
+def test_allowed_hosts_defaults_to_local_only() -> None:
+    settings = Settings.from_env({"MCP_API_KEY": "k"})
+    assert settings.allowed_hosts == ("127.0.0.1:*", "localhost:*", "[::1]:*")
+
+
+def test_render_hostname_is_picked_up_automatically() -> None:
+    # The deployed server answers to one name it is not told about directly.
+    # Without this the SDK's DNS-rebinding check rejects every real request
+    # with 421 while every local test still passes.
+    settings = Settings.from_env(
+        {"MCP_API_KEY": "k", "RENDER_EXTERNAL_HOSTNAME": "sheets-mcp-yshi.onrender.com"}
+    )
+    assert settings.allowed_hosts[0] == "sheets-mcp-yshi.onrender.com"
+    assert "localhost:*" in settings.allowed_hosts
+
+
+def test_explicit_allowed_hosts_override_the_platform() -> None:
+    settings = Settings.from_env(
+        {
+            "MCP_API_KEY": "k",
+            "MCP_ALLOWED_HOSTS": "a.example.com, b.example.com",
+            "RENDER_EXTERNAL_HOSTNAME": "ignored.onrender.com",
+        }
+    )
+    assert settings.allowed_hosts[:2] == ("a.example.com", "b.example.com")
+    assert "ignored.onrender.com" not in settings.allowed_hosts
+
+
+def test_origins_are_https_for_real_hosts_and_http_for_local() -> None:
+    settings = Settings.from_env(
+        {"MCP_API_KEY": "k", "RENDER_EXTERNAL_HOSTNAME": "sheets-mcp-yshi.onrender.com"}
+    )
+    assert "https://sheets-mcp-yshi.onrender.com" in settings.allowed_origins
+    assert "http://localhost:*" in settings.allowed_origins

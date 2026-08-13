@@ -12,6 +12,7 @@ from datetime import datetime
 from typing import Any
 
 from mcp.server import MCPServer
+from mcp.server.transport_security import TransportSecuritySettings
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
@@ -80,6 +81,14 @@ def create_app() -> Any:
         # then costs nothing: there is no session for a reconnect to have lost,
         # and a restart cannot strand a client holding a dead session id.
         stateless_http=True,
+        # Left unset, the SDK infers a localhost deployment and allow-lists only
+        # 127.0.0.1, localhost, and ::1 — so every request to the real hostname
+        # is rejected with 421, while local testing passes and reveals nothing.
+        transport_security=TransportSecuritySettings(
+            enable_dns_rebinding_protection=True,
+            allowed_hosts=list(settings.allowed_hosts),
+            allowed_origins=list(settings.allowed_origins),
+        ),
     )
 
     if settings.api_key is not None:
@@ -91,6 +100,7 @@ def create_app() -> Any:
         header_auth=settings.api_key is not None,
         path_auth=settings.secret_path is not None,
         timezone=str(settings.timezone),
+        allowed_hosts=list(settings.allowed_hosts),
     )
     return app
 

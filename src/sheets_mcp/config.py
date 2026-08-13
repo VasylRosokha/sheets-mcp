@@ -9,6 +9,7 @@ unexplained error hours later.
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping
 from dataclasses import dataclass
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -17,6 +18,12 @@ DEFAULT_TIMEZONE = "Europe/Prague"
 DEFAULT_LOG_LEVEL = "info"
 
 _LOG_LEVELS = frozenset({"debug", "info", "warning", "error", "critical"})
+
+# Hosts the MCP endpoint answers to when nothing else is configured. The SDK's
+# DNS-rebinding protection rejects any other Host header with a 421, which is
+# correct for a server reached at one known name and invisible in local testing
+# — where these are the only names in play.
+_LOCAL_HOSTS = ("127.0.0.1:*", "localhost:*", "[::1]:*")
 
 
 class ConfigError(RuntimeError):
@@ -32,6 +39,19 @@ class Settings:
     port: int
     timezone: ZoneInfo
     log_level: str
+    allowed_hosts: tuple[str, ...]
+
+    @property
+    def allowed_origins(self) -> tuple[str, ...]:
+        """Origins accepted alongside `allowed_hosts`.
+
+        A server-to-server caller sends no `Origin` at all, which the SDK
+        permits; this exists so a browser-based client is not locked out. Local
+        names get `http://` because nothing issues certificates for them.
+        """
+        return tuple(
+            f"http://{host}" if host in _LOCAL_HOSTS else f"https://{host}" for host in self.allowed_hosts
+        )
 
     @property
     def mcp_path(self) -> str:
@@ -72,7 +92,29 @@ class Settings:
             port=_int(source.get("PORT"), default=DEFAULT_PORT, name="PORT"),
             timezone=_timezone(source.get("TZ")),
             log_level=_log_level(source.get("LOG_LEVEL")),
+            allowed_hosts=_allowed_hosts(source),
         )
+
+
+def _allowed_hosts(source: Mapping[str, str]) -> tuple[str, ...]:
+    """Resolve which `Host` headers the MCP endpoint will answer to.
+
+    `RENDER_EXTERNAL_HOSTNAME` is injected by the platform, so a Render deploy
+    needs no manual configuration and cannot drift from the real hostname when
+    the service is renamed. `MCP_ALLOWED_HOSTS` overrides it for anywhere else,
+    and the local names are always kept so a developer's own machine works
+    without special-casing.
+    """
+    explicit = _clean(source.get("MCP_ALLOWED_HOSTS"))
+    if explicit is not None:
+        configured = tuple(host.strip() for host in explicit.split(",") if host.strip())
+        return (*configured, *_LOCAL_HOSTS)
+
+    external = _clean(source.get("RENDER_EXTERNAL_HOSTNAME"))
+    if external is not None:
+        return (external, *_LOCAL_HOSTS)
+
+    return _LOCAL_HOSTS
 
 
 def _clean(raw: str | None) -> str | None:
