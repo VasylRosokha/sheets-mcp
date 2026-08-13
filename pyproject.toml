@@ -1,0 +1,46 @@
+[project]
+name = "sheets-mcp"
+version = "0.1.0"
+description = "Remote MCP server giving Claude read/write access to personal Google Sheets"
+requires-python = ">=3.12"
+dependencies = [
+    # v2 of the official SDK. The API changed substantially from v1 (FastMCP was
+    # renamed to MCPServer, transport options moved off the constructor), so the
+    # major version is pinned rather than left open.
+    "mcp>=2,<3",
+    "uvicorn>=0.35",
+    "structlog>=24.4",
+]
+
+[dependency-groups]
+dev = [
+    "mcp[cli]>=2,<3",   # `mcp dev` inspector — laptop only, not installed on the VPS
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "httpx>=0.27",
+    "mypy>=1.13",
+    "ruff>=0.8",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sheets_mcp"]
+
+[tool.pytest.ini_options]
+addopts = "-m 'not integration'"
+markers = ["integration: hits a real spreadsheet; opt in with -m integration"]
+asyncio_mode = "auto"
+
+[tool.mypy]
+strict = true
+files = ["src", "tests"]
+
+[tool.ruff]
+line-length = 110
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]

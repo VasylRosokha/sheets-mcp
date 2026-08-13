@@ -1,0 +1,28 @@
+# Replace <name> with the DuckDNS subdomain, then:
+#   sudo cp Caddyfile /etc/caddy/Caddyfile
+#   sudo caddy validate --config /etc/caddy/Caddyfile
+#   sudo systemctl reload caddy
+#
+# Caddy obtains the certificate on first start via HTTP-01 and renews it
+# without intervention. Renewal needs port 80 to stay open — do not close it
+# after setup (§12.3).
+
+sheets-mcp.<name>.duckdns.org {
+	reverse_proxy localhost:8787
+
+	log {
+		output file /var/log/caddy/sheets-mcp.log
+		# The secret path segment (§6.2) is a credential that happens to live
+		# in the URL, so it must never be written to a file that outlives its
+		# rotation. Strip it before the line is encoded, keeping the rest of
+		# the request loggable.
+		format filter {
+			wrap json
+			fields {
+				request>uri regexp "/mcp/[0-9a-f]+" "/mcp/REDACTED"
+				request>headers>X-Api-Key delete
+				request>headers>Authorization delete
+			}
+		}
+	}
+}

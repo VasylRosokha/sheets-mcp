@@ -1,0 +1,46 @@
+# Render blueprint (§12.2). Commit this, then point a Render Blueprint at the
+# repo — everything below is applied on deploy.
+#
+# The free plan spins the service down after 15 minutes without inbound
+# traffic and takes roughly a minute to wake. That is accepted deliberately:
+# sleeping is what keeps monthly usage far below the 750-hour allowance, and
+# the cost is a slow first call after a quiet period, not a broken one.
+
+services:
+  - type: web
+    name: sheets-mcp
+    runtime: python
+    plan: free
+    region: frankfurt
+
+    # uv reads .python-version (3.12) and fetches that interpreter itself, so
+    # the build does not depend on whichever Python the image happens to ship.
+    # --frozen installs exactly what uv.lock pins; a deploy is not the place to
+    # discover that a transitive dependency published a release this morning.
+    buildCommand: pip install uv && uv sync --frozen --no-dev
+
+    # 0.0.0.0, unlike the VPS unit's 127.0.0.1: Render's proxy reaches the
+    # container over the network, and $PORT is injected by the platform.
+    # --workers 1 keeps a single in-process idempotency cache (§9.3); a second
+    # worker could accept a retried request it has never seen and write a
+    # duplicate row.
+    startCommand: .venv/bin/uvicorn sheets_mcp.server:app --host 0.0.0.0 --port $PORT --workers 1
+
+    # Validates deploys and is exempt from auth by design (§12.11). It does not
+    # keep a free instance awake — Render stops probing once a service spins
+    # down, which is what makes scale-to-zero possible at all.
+    healthCheckPath: /health
+
+    envVars:
+      # sync: false means "prompt me, never store it in the repo". These are
+      # entered once in the dashboard and held encrypted.
+      - key: MCP_API_KEY
+        sync: false
+      - key: GOOGLE_SERVICE_ACCOUNT_KEY
+        sync: false
+      - key: TZ
+        value: Europe/Prague
+      - key: LOG_LEVEL
+        value: info
+      - key: PYTHONUNBUFFERED
+        value: "1"
