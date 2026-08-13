@@ -34,6 +34,15 @@ services:
     envVars:
       # sync: false means "prompt me, never store it in the repo". These are
       # entered once in the dashboard and held encrypted.
+      #
+      # Exactly one of the two auth variables is set (§6). MCP_SECRET_PATH is
+      # the live one: Claude's custom-connector dialog offers no request-header
+      # field on this account, so the credential has to travel in the URL.
+      # MCP_API_KEY is declared but left empty, ready for the day the header
+      # feature ships — an empty value reads as unset, so a blank one here
+      # authenticates nobody rather than everybody.
+      - key: MCP_SECRET_PATH
+        sync: false
       - key: MCP_API_KEY
         sync: false
       - key: GOOGLE_SERVICE_ACCOUNT_KEY
