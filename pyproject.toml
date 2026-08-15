@@ -10,6 +10,12 @@ dependencies = [
     "mcp>=2,<3",
     "uvicorn>=0.35",
     "structlog>=24.4",
+    # pydantic arrives transitively via mcp, but profiles.yaml is validated with
+    # it directly, so it is declared rather than depended on by accident.
+    "pydantic>=2.9",
+    "pyyaml>=6.0",
+    "google-auth>=2.35",
+    "google-api-python-client>=2.150",
 ]
 
 [dependency-groups]
@@ -20,6 +26,13 @@ dev = [
     "httpx>=0.27",
     "mypy>=1.13",
     "ruff>=0.8",
+    # PyYAML ships no inline types, and without these `yaml.safe_load` is Any —
+    # which quietly disables strict checking of everything downstream of it.
+    "types-PyYAML>=6.0",
+    # The Google client is generated at runtime from a discovery document, so it
+    # has no types of its own. Without these, every `.spreadsheets().values()`
+    # chain is Any and a typo in a method name type-checks perfectly.
+    "google-api-python-client-stubs>=1.28",
 ]
 
 [build-system]

@@ -1,0 +1,59 @@
+# Profile registry (spec §7.2). Loaded and validated once, at boot.
+#
+# Adding a spreadsheet is an edit to this file plus a share in Google Drive —
+# no code changes — provided its shape is one of the three layouts in §7.1.
+# A genuinely new shape needs a new layout module.
+#
+# Changing a `name` or an alias changes what Claude can be asked for, so treat
+# those as a public interface. Spreadsheet ids and tab names are not secrets,
+# but they do point at personal data: replace them with placeholders before
+# this repository is ever made public.
+
+profiles:
+  - name: training
+    aliases: [workout, gym, тренування]
+    layout: dated-block
+    description: >
+      Training log. Each session is a dated block: a date row followed by one
+      row per exercise. Set notation is free-form text, typically
+      weight x reps x sets (e.g. 80x8x3) for weighted exercises, or
+      reps x sets (e.g. 8x3) for bodyweight exercises.
+    spreadsheet_id: 1GeDaU-qmrDjb2WjvfORqvmIfzT-MFTpTXckWOaS2t6M
+    tab: Лист1
+    date_column: A
+    item_column: A
+    value_columns: [B, C, D, E, F, G]
+    # Both forms appear in the existing sheet (§7.5); only the four-digit form
+    # is ever written back.
+    date_formats: ["DD.MM.YYYY", "DD.MM.YY"]
+    write_date_format: "DD.MM.YYYY"
+    block_separator: blank-row
+
+  - name: study
+    aliases: [learning, навчання, habits]
+    layout: grid
+    description: >
+      Monthly habit grid. One block per month; rows are days 1-31;
+      columns are activities. Values are tally marks, one stroke per session.
+    spreadsheet_id: 1kmJ8Gmu3JlGIe9wn_KW3Dh04VhiRJ4zDtFEEynpG0Mk
+    tab: Лист1
+    day_column: B
+    period_header_offset: -2   # rows above the first day row
+    label_row_offset: -1
+    value_type: duration-tally # "|" = 1 hour, "-" = 30 minutes
+    duration_step: 0.5         # hours; inputs are rounded to this
+    write_canonical: true      # emit "|-" not "| -"
+    columns:
+      - key: programming
+        label: Програмування
+        aliases: [код, coding, dev]
+      - key: reading
+        label: Читання
+      - key: english
+        label: Англійська
+      - key: czech
+        label: Чеська
+    note: >
+      Column labels are NOT stable across months. Observed: May replaced
+      Читання with Крипта; June replaced Англійська with "x". The label row
+      must be read per block, never assumed from config.
