@@ -187,6 +187,22 @@ class GridProfile(_BaseProfile):
     write_canonical: bool = True
     columns: list[GridColumn] = Field(min_length=1)
     note: str | None = None
+    # The twelve period headers as they are written in the sheet, January first.
+    # Configured rather than derived: `strftime("%B")` answers in whatever locale
+    # the container happens to have, so it would return "August" for a sheet that
+    # says "Серпень" — and would keep doing so in a way no local test reveals,
+    # because the developer's locale is not the deployment's.
+    period_names: list[str] = Field(min_length=12, max_length=12)
+
+    @field_validator("period_names")
+    @classmethod
+    def _period_names_are_distinct(cls, value: list[str]) -> list[str]:
+        _reject_duplicates((name.casefold() for name in value), what="period name")
+        return value
+
+    def period_name_for(self, month: int) -> str:
+        """The sheet's own name for a calendar month, 1-based."""
+        return self.period_names[month - 1]
 
     @field_validator("day_column")
     @classmethod

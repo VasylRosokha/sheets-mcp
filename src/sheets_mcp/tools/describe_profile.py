@@ -18,10 +18,16 @@ from sheets_mcp.profiles.models import DatedBlockProfile, GridProfile, TableProf
 from sheets_mcp.runtime import Runtime
 from sheets_mcp.tools.list_profiles import WRITE_TOOL
 
-# Read from row 1 so reported row numbers are absolute sheet rows, and wide
-# enough to cover the grid's activity columns. Bounded rather than open-ended
-# because an unbounded range on a sparse sheet returns a great deal of nothing.
-_SCAN_RANGE = "A1:N400"
+# Unbounded rows, starting at column A so reported row numbers are absolute
+# sheet rows. A row ceiling was the first version of this and it was wrong: the
+# training sheet's most recent block already sits at row 353, so any fixed limit
+# is a deadline. Google returns only rows that hold data and trims trailing
+# empties, so the open range costs nothing on a sheet that has not grown.
+#
+# Columns stay bounded at N. That is a real limit rather than an arbitrary one:
+# the widest layout is the grid, whose activity columns sit within it, and an
+# open column range would pull in whatever a future column contains.
+_SCAN_RANGE = "A:N"
 
 # Enough history for the model to see the naming convention without turning the
 # response into a transcript of the whole sheet.
@@ -90,14 +96,17 @@ def _describe_grid(rows: list[list[str]], profile: GridProfile, runtime: Runtime
     last = periods[-1]
     # Reported so the model knows whether to write or to create a block first,
     # rather than attempting a write and interpreting PERIOD_BLOCK_MISSING.
-    current = dates.today(runtime.settings.timezone).strftime("%B")
+    # The name comes from the profile, not from strftime: the sheet's months are
+    # Ukrainian and the container's locale is not.
+    today = dates.today(runtime.settings.timezone)
+    current = profile.period_name_for(today.month)
     return {
         "period_count": len(periods),
         "periods": [period.name for period in periods],
         "last_period": last.name,
         "last_period_labels": list(last.labels),
         "last_period_day_rows": [last.first_day_row, last.last_day_row],
-        "current_period_name_in_server_locale": current,
+        "current_period": current,
         "current_period_exists": any(period.name.casefold() == current.casefold() for period in periods),
         "value_type": str(profile.value_type),
         "duration_step": profile.duration_step,

@@ -41,6 +41,20 @@ STUDY: dict[str, Any] = {
     "day_column": "B",
     "period_header_offset": -2,
     "label_row_offset": -1,
+    "period_names": [
+        "Січень",
+        "Лютий",
+        "Березень",
+        "Квітень",
+        "Травень",
+        "Червень",
+        "Липень",
+        "Серпень",
+        "Вересень",
+        "Жовтень",
+        "Листопад",
+        "Грудень",
+    ],
     "columns": [{"key": "programming", "label": "Програмування", "aliases": ["код"]}],
 }
 
@@ -169,3 +183,28 @@ def test_the_shipped_example_is_valid_apart_from_its_placeholders() -> None:
     assert reg.names == ["training", "study"]
     assert reg.resolve("gym") is not None
     assert reg.resolve("код") is None  # a column alias, not a profile alias
+
+
+def test_grid_requires_all_twelve_period_names() -> None:
+    # Eleven would silently shift every month after the gap.
+    short = {**STUDY, "period_names": ["Січень"]}
+    with pytest.raises(ValueError, match="at least 12|at most 12"):
+        registry(short)
+
+
+def test_period_name_comes_from_config_not_the_locale() -> None:
+    # strftime("%B") answers in the container's locale and would return
+    # "August" for a sheet whose header says "Серпень" — with no local symptom,
+    # because the developer's locale is not the deployment's.
+    reg = registry(STUDY)
+    study = reg.profiles[0]
+    assert isinstance(study, GridProfile)
+    assert study.period_name_for(8) == "Серпень"
+    assert study.period_name_for(1) == "Січень"
+    assert study.period_name_for(12) == "Грудень"
+
+
+def test_duplicate_period_names_are_rejected() -> None:
+    dupe = {**STUDY, "period_names": ["Січень"] * 12}
+    with pytest.raises(ValueError, match="duplicate period name"):
+        registry(dupe)

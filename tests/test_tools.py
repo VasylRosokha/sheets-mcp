@@ -114,7 +114,7 @@ async def test_describe_quotes_the_tab_name_in_the_range() -> None:
     # a range problem rather than a tab problem.
     client = FakeClient(TRAINING_SHEET)
     await describe_profile(runtime_with(client), "training")
-    assert client.ranges == ["'Лист1'!A1:N400"]
+    assert client.ranges == ["'Лист1'!A:N"]
 
 
 async def test_describe_grid_reports_live_labels_over_config() -> None:
@@ -148,3 +148,28 @@ async def test_describe_without_credentials_says_so() -> None:
     runtime = Runtime(Settings.from_env(ENV), registry_path="profiles.yaml")
     with pytest.raises(CredentialsMissing, match="GOOGLE_SERVICE_ACCOUNT_KEY"):
         await describe_profile(runtime, "training")
+
+
+async def test_current_period_is_detected_when_its_block_exists() -> None:
+    # The regression this locks in: strftime("%B") returned "August" in the
+    # container's locale and never matched a Ukrainian header, so this reported
+    # False for every month — including months that were present. The model
+    # would then have created a duplicate block on top of a real one.
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    from sheets_mcp.profiles.models import GridProfile
+
+    study = runtime_with().require_profile("study")
+    assert isinstance(study, GridProfile)
+    this_month = study.period_name_for(datetime.now(ZoneInfo("Europe/Prague")).month)
+
+    sheet = [
+        ["", "", "", ""],
+        ["", "День", this_month, ""],
+        ["", "", "Програмування", "Читання"],
+        ["", "1", "|", ""],
+    ]
+    result = await describe_profile(runtime_with(FakeClient(sheet)), "study")
+    assert result["current_period"] == this_month
+    assert result["current_period_exists"] is True

@@ -43,6 +43,9 @@ profiles:
     value_type: duration-tally # "|" = 1 hour, "-" = 30 minutes
     duration_step: 0.5         # hours; inputs are rounded to this
     write_canonical: true      # emit "|-" not "| -"
+    # The sheet's own month names, January first (§7.5). Not derived from a
+    # locale: the container's locale is not this sheet's language.
+    period_names: [Січень, Лютий, Березень, Квітень, Травень, Червень, Липень, Серпень, Вересень, Жовтень, Листопад, Грудень]
     columns:
       - key: programming
         label: Програмування
