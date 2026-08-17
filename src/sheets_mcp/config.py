@@ -40,6 +40,11 @@ class Settings:
     timezone: ZoneInfo
     log_level: str
     allowed_hosts: tuple[str, ...]
+    # Base64 of the service account JSON key (§5.3). Not decoded here: this
+    # class stays free of Google imports so it can be constructed in tests
+    # without them, and an unparseable key is the Sheets client's error to
+    # report, with the guidance about `base64 -w0` that goes with it.
+    google_service_account_key: str | None
 
     @property
     def allowed_origins(self) -> tuple[str, ...]:
@@ -93,6 +98,7 @@ class Settings:
             timezone=_timezone(source.get("TZ")),
             log_level=_log_level(source.get("LOG_LEVEL")),
             allowed_hosts=_allowed_hosts(source),
+            google_service_account_key=_clean(source.get("GOOGLE_SERVICE_ACCOUNT_KEY")),
         )
 
 
