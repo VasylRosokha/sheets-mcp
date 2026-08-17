@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from datetime import date
 
 from sheets_mcp import dates
-from sheets_mcp.profiles.models import DatedBlockProfile, column_index
+from sheets_mcp.profiles.models import DatedBlockProfile, column_index, column_letter
 
 
 @dataclass(frozen=True, slots=True)
@@ -82,6 +82,94 @@ def recent_item_names(blocks: list[Block], *, block_count: int = 10) -> list[str
         for item in block.items:
             seen.setdefault(item.name, None)
     return list(seen)
+
+
+@dataclass(frozen=True, slots=True)
+class WritePlan:
+    """Exactly what a `log_session` call would write, computed before writing it.
+
+    Separated from the write itself so `dry_run` and the real call share one code
+    path — a dry run that computed its answer differently would be reassurance
+    about nothing.
+    """
+
+    mode: str
+    a1_range: str
+    rows: list[list[str]]
+    first_row: int
+
+
+def plan_session(
+    rows: list[list[str]],
+    profile: DatedBlockProfile,
+    *,
+    tab: str,
+    target: date,
+    items: list[Item],
+    mode: str,
+) -> WritePlan:
+    """Decide where a session goes and what the written cells contain (§8.7).
+
+    Pure: no I/O, so every branch is testable against a fixture. `rows` must
+    start at sheet row 1 so the returned range is absolute.
+
+    Appends only. The first written row is always below every populated row in
+    the sheet, which is what makes a mistargeted write unable to overwrite
+    existing history.
+    """
+    blocks = scan_blocks(rows, profile)
+    last_populated = _last_populated_row(rows)
+
+    resolved = mode
+    if mode == "auto":
+        resolved = "append-to-existing" if blocks and blocks[-1].date == target else "new-block"
+
+    item_at = column_index(profile.item_column)
+    date_at = column_index(profile.date_column)
+    value_positions = [column_index(letter) for letter in profile.value_columns]
+    width = max([item_at, date_at, *value_positions]) + 1
+
+    body = [_item_row(item, item_at, value_positions, width) for item in items]
+
+    if resolved == "append-to-existing":
+        first_row = last_populated + 1
+        payload = body
+    else:
+        # One blank separator row (§8.7 step 3). It is skipped rather than
+        # written: writing an empty row is a no-op that still counts as a
+        # modification in version history.
+        first_row = last_populated + 2
+        date_row = [""] * width
+        date_row[date_at] = dates.render(target, profile.write_date_format)
+        payload = [date_row, *body]
+
+    start = min([item_at, date_at, *value_positions])
+    end = max([item_at, date_at, *value_positions])
+    last_row = first_row + len(payload) - 1
+    a1_range = f"'{tab}'!{column_letter(start)}{first_row}:{column_letter(end)}{last_row}"
+
+    return WritePlan(mode=resolved, a1_range=a1_range, rows=payload, first_row=first_row)
+
+
+def _item_row(item: Item, item_at: int, value_positions: list[int], width: int) -> list[str]:
+    row = [""] * width
+    row[item_at] = item.name
+    for value, position in zip(item.values, value_positions, strict=False):
+        row[position] = value
+    return row
+
+
+def _last_populated_row(rows: list[list[str]]) -> int:
+    """The 1-based index of the last row holding anything.
+
+    Google trims trailing empty rows from a read, so this is usually
+    `len(rows)` — but not when a range read returns interior padding, and
+    getting it wrong by one writes into the last existing row.
+    """
+    for offset in range(len(rows) - 1, -1, -1):
+        if any(cell.strip() for cell in rows[offset]):
+            return offset + 1
+    return 0
 
 
 def _cell(row: list[str], index: int) -> str:

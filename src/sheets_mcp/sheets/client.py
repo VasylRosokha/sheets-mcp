@@ -108,6 +108,34 @@ class SheetsClient:
         rows = payload.get("values", [])
         return [[str(cell) for cell in row] for row in rows]
 
+    async def write_range(
+        self, spreadsheet_id: str, a1_range: str, values: list[list[str]]
+    ) -> dict[str, Any]:
+        """Write values into an explicit range.
+
+        `RAW`, not `USER_ENTERED`. The values this server writes are free-form
+        text that Sheets would otherwise try to interpret: `8x3` survives either
+        way, but a tally cell of `-` and a date of `16.08.2026` do not
+        necessarily, and §7.3 promises verbatim writing. RAW also means a value
+        beginning with `=` is stored as text rather than evaluated as a formula,
+        which matters when the text ultimately comes from a chat message.
+        """
+
+        def call() -> dict[str, Any]:
+            request = (
+                self._service.spreadsheets()
+                .values()
+                .update(
+                    spreadsheetId=spreadsheet_id,
+                    range=a1_range,
+                    valueInputOption="RAW",
+                    body={"values": values},
+                )
+            )
+            return dict(request.execute())
+
+        return await self._run(call, spreadsheet_id=spreadsheet_id, a1_range=a1_range)
+
     async def _run(
         self,
         call: Any,

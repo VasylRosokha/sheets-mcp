@@ -77,6 +77,31 @@ class TabNotFound(SheetsMcpError):
         )
 
 
+class ValidationError(SheetsMcpError):
+    code = "VALIDATION_ERROR"
+
+
+class DateOutOfOrder(SheetsMcpError):
+    code = "DATE_OUT_OF_ORDER"
+
+    def __init__(self, requested: str, last_block: str) -> None:
+        super().__init__(
+            f"Cannot log {requested}: the sheet's most recent block is {last_block}, and blocks "
+            "must stay in ascending order. Inserting a session mid-sheet is not supported — add "
+            "it by hand if the date really is earlier."
+        )
+
+
+class TooManyValues(SheetsMcpError):
+    code = "TOO_MANY_VALUES"
+
+    def __init__(self, item: str, given: int, allowed: int) -> None:
+        super().__init__(
+            f"{item!r} has {given} values but this profile has room for {allowed}. "
+            "Combine them into fewer cells, or widen value_columns in profiles.yaml."
+        )
+
+
 class RateLimited(SheetsMcpError):
     code = "RATE_LIMITED"
 

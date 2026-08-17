@@ -65,6 +65,18 @@ def column_index(letter: str) -> int:
     return index - 1
 
 
+def column_letter(index: int) -> str:
+    """Inverse of `column_index`. 0 → `A`, 26 → `AA`."""
+    if index < 0:
+        raise ValueError(f"column index {index} is negative")
+    letters = ""
+    remaining = index + 1
+    while remaining > 0:
+        remaining, remainder = divmod(remaining - 1, 26)
+        letters = chr(ord("A") + remainder) + letters
+    return letters
+
+
 def _validate_column(value: str) -> str:
     letter = value.strip().upper()
     if not _COLUMN_LETTER.match(letter):

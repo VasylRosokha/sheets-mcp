@@ -86,6 +86,40 @@ async def describe_profile(profile: str) -> dict[str, Any]:
 
 
 @mcp.tool()
+async def log_session(
+    profile: str,
+    items: list[dict[str, Any]],
+    when: str | None = None,
+    mode: str = "auto",
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    """Append a dated session to a `dated-block` profile, such as a training log.
+
+    Call `describe_profile` first if you have not already in this conversation.
+    Reuse the exact item names it returns in `recent_item_names`; a new spelling
+    of an existing exercise creates a second, unrelated item forever.
+
+    `items` is a list of `{"name": str, "values": [str, ...]}`. Values are
+    written verbatim, left to right, and are not parsed — pass set notation as
+    the owner writes it, typically `80x8x3` for weighted work or `8x3` for
+    bodyweight. Do not convert, normalise, or reorder it.
+
+    `when` accepts `today` (the default), `yesterday`, `DD.MM.YYYY`, or
+    `YYYY-MM-DD`, and resolves in the server's timezone rather than yours.
+
+    `mode` is normally left as `auto`: it appends to the existing block when the
+    date matches the sheet's last block, and starts a new block otherwise.
+
+    Set `dry_run` true to see the exact range and cell values without writing.
+    Worth doing when the session is long or the date is unusual.
+
+    A date earlier than the sheet's last block is refused — this tool only ever
+    appends, and it will not insert a session mid-sheet.
+    """
+    return await _guard(tools.log_session(runtime, profile, items, when=when, mode=mode, dry_run=dry_run))
+
+
+@mcp.tool()
 async def ping() -> str:
     """Check that the sheets server is reachable and report its local time.
 
