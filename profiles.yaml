@@ -40,7 +40,9 @@ profiles:
     day_column: B
     period_header_offset: -2   # rows above the first day row
     label_row_offset: -1
-    value_type: duration-tally # "|" = 1 hour, "-" = 30 minutes
+    # Written as 1h / 1.5h from 17 August 2026. Existing tally cells
+    # ("|" = 1h, "-" = 30m) are still read; nothing rewrites them.
+    value_type: duration-hours
     duration_step: 0.5         # hours; inputs are rounded to this
     write_canonical: true      # emit "|-" not "| -"
     # The sheet's own month names, January first (§7.5). Not derived from a

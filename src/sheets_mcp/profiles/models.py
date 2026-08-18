@@ -42,7 +42,11 @@ class ValueType(StrEnum):
     NUMBER = "number"
     INTEGER = "integer"
     DATE = "date"
+    # The original notation, still present in seven months of history.
     DURATION_TALLY = "duration-tally"
+    # Used for everything written from 17 August 2026. Readers accept both
+    # regardless of this setting; only writing follows it.
+    DURATION_HOURS = "duration-hours"
     FREEFORM = "freeform"
 
 
