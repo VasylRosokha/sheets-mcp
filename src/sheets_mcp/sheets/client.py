@@ -26,6 +26,7 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
 from sheets_mcp.errors import (
+    BadRequest,
     CredentialsInvalid,
     CredentialsMissing,
     PermissionDenied,
@@ -181,11 +182,17 @@ class SheetsClient:
         if status == 404:
             return SpreadsheetNotFound(spreadsheet_id)
         if status == 400 and a1_range is not None:
-            # A bad range is nearly always a tab name that does not exist; the
-            # API says "Unable to parse range", which sounds like a syntax
-            # error and sends the reader to the wrong place.
-            tab = a1_range.split("!", 1)[0].strip("'")
-            return TabNotFound(tab, spreadsheet_id, [])
+            # Only "unable to parse range" actually means a missing tab. This
+            # used to blame the tab for *every* 400, which hid a real defect:
+            # a write whose rows were one column wider than its range failed
+            # with TAB_NOT_FOUND naming a tab that plainly existed and had been
+            # read successfully seconds earlier. An error that misattributes
+            # the cause is worse than one that says nothing.
+            detail = _detail(exc)
+            if "unable to parse range" in detail.casefold():
+                tab = a1_range.split("!", 1)[0].strip("'")
+                return TabNotFound(tab, spreadsheet_id, [])
+            return BadRequest(a1_range, detail)
         return UpstreamError(f"Google Sheets returned {status}: {exc.reason}")
 
 
@@ -224,3 +231,19 @@ def build_client(raw_key: str | None) -> SheetsClient:
         ) from exc
 
     return SheetsClient(credentials)
+
+
+def _detail(exc: HttpError) -> str:
+    """The API's own explanation, which is where the useful text lives.
+
+    `HttpError.reason` is often just "Bad Request"; the sentence that names the
+    actual problem sits in the JSON body.
+    """
+    try:
+        payload = json.loads(exc.content.decode("utf-8"))
+        message = payload.get("error", {}).get("message")
+        if isinstance(message, str) and message:
+            return message
+    except (ValueError, AttributeError, UnicodeDecodeError):
+        pass
+    return str(exc.reason)

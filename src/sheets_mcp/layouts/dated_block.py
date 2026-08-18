@@ -148,6 +148,11 @@ def plan_session(
     last_row = first_row + len(payload) - 1
     a1_range = f"'{tab}'!{column_letter(start)}{first_row}:{column_letter(end)}{last_row}"
 
+    # Trim to the range's first column. Currently a no-op because this profile
+    # starts at A, which is exactly why the identical bug in the grid planner
+    # survived until it hit a real sheet.
+    payload = [row[start:] for row in payload]
+
     return WritePlan(mode=resolved, a1_range=a1_range, rows=payload, first_row=first_row)
 
 

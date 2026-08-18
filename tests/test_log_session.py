@@ -244,3 +244,22 @@ async def test_an_empty_sheet_starts_at_row_2() -> None:
     client = FakeClient([])
     result = await log_session(runtime_with(client), "training", [item("X", "1")], when="17.08.2026")
     assert result["range"] == "'Лист1'!A2:G3"
+
+
+async def test_planned_rows_are_exactly_as_wide_as_their_range() -> None:
+    """Same invariant as the grid planner, which failed this on a real sheet.
+
+    A no-op for this profile because its range starts at column A. That is the
+    point: the identical bug went unnoticed here and only surfaced where the
+    first used column was not A.
+    """
+    from sheets_mcp.profiles.models import column_index
+
+    result = await log_session(
+        runtime_with(FakeClient(SHEET)), "training", [item("X", "1")], when="17.08.2026"
+    )
+    body = result["range"].split("!", 1)[1]
+    first, last = body.split(":")
+    start = column_index("".join(c for c in first if c.isalpha()))
+    end = column_index("".join(c for c in last if c.isalpha()))
+    assert all(len(row) == end - start + 1 for row in result["rows"])

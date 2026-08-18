@@ -241,7 +241,13 @@ async def test_the_new_block_is_readable_by_the_scanner() -> None:
     combined = [list(r) for r in client.rows]
     while len(combined) < built.header_row - 1:
         combined.append([])
-    combined.extend(built.rows)
+    # Planned rows are anchored at the range's first column (B here), while the
+    # fixture is absolute from column A. Re-pad before re-scanning, or the day
+    # numbers land in A and the scanner correctly finds nothing.
+    from sheets_mcp.profiles.models import column_index
+
+    offset = column_index(profile.day_column)
+    combined.extend([[""] * offset + row for row in built.rows])
 
     periods = grid.scan_periods(combined, profile)
     assert [p.name for p in periods] == ["Липень", "Серпень"]
@@ -253,3 +259,51 @@ async def test_a_malformed_period_is_refused() -> None:
     client = FakeClient(SHEET)
     with pytest.raises(ValidationError, match="YYYY-MM"):
         await create_period_block(runtime_with(client), "study", period="August")
+
+
+# --- regressions from the first real write attempt ---------------------------
+
+
+async def test_planned_rows_are_exactly_as_wide_as_their_range() -> None:
+    """The defect that made create_period_block fail on the real sheet.
+
+    Rows were built with absolute column indices (A..F) and sent into a range
+    anchored at B, so every row was one column too wide. Google rejected it with
+    a 400, and had it been accepted every value would have landed one column to
+    the left. log_session was unaffected only because its range happens to start
+    at A — which is why nothing caught this.
+    """
+    from sheets_mcp.layouts.grid import plan_period_block
+    from sheets_mcp.profiles.models import GridProfile, column_index
+
+    profile = runtime_with(FakeClient(SHEET)).require_profile("study")
+    assert isinstance(profile, GridProfile)
+    plan = plan_period_block(SHEET, profile, tab="Лист1", year=2026, month=8)
+
+    body = plan.a1_range.split("!", 1)[1]
+    first, last = body.split(":")
+    start = column_index("".join(c for c in first if c.isalpha()))
+    end = column_index("".join(c for c in last if c.isalpha()))
+    expected = end - start + 1
+
+    assert all(len(row) == expected for row in plan.rows), (
+        f"range spans {expected} columns but rows are {len(plan.rows[0])} wide"
+    )
+
+
+async def test_the_day_number_lands_in_the_day_column() -> None:
+    # The other half of the same defect: an off-by-one would have put day
+    # numbers in column A and pushed every activity one column left.
+    from sheets_mcp.layouts.grid import plan_period_block
+    from sheets_mcp.profiles.models import GridProfile
+
+    profile = runtime_with(FakeClient(SHEET)).require_profile("study")
+    assert isinstance(profile, GridProfile)
+    plan = plan_period_block(SHEET, profile, tab="Лист1", year=2026, month=8)
+
+    # The range starts at B, so index 0 of each row *is* column B.
+    assert plan.rows[0][0] == "День"
+    assert plan.rows[0][1] == "Серпень"
+    assert plan.rows[1][1] == "Програмування"
+    assert plan.rows[2][0] == "1"
+    assert plan.rows[-1][0] == "31"

@@ -230,10 +230,18 @@ def plan_period_block(
     end = max([day_at, *label_columns])
     a1_range = f"'{tab}'!{column_letter(start)}{header_row}:{column_letter(end)}{last_day_row}"
 
+    # Rows are built with absolute column indices so the code can say
+    # `row[day_at]`, but the range starts at the first used column. Sending
+    # A-indexed rows into a B-anchored range is one column too wide, which
+    # Google rejects with a 400 — and would have shifted every value left by one
+    # if it had been accepted.
+    payload = [row[start:] for row in (header, label_line, *day_rows)]
+    assert len(payload[0]) == end - start + 1
+
     return BlockPlan(
         period=period,
         a1_range=a1_range,
-        rows=[header, label_line, *day_rows],
+        rows=payload,
         header_row=header_row,
         label_row=label_row,
         first_day_row=first_day_row,

@@ -151,6 +151,15 @@ class UnparseableCell(SheetsMcpError):
         )
 
 
+class BadRequest(SheetsMcpError):
+    code = "BAD_REQUEST"
+
+    def __init__(self, a1_range: str, detail: str) -> None:
+        # Google's own sentence, verbatim. Paraphrasing it is what turned a
+        # width mismatch into a bogus TAB_NOT_FOUND.
+        super().__init__(f"Google Sheets rejected the request for {a1_range}: {detail}")
+
+
 class RateLimited(SheetsMcpError):
     code = "RATE_LIMITED"
 
