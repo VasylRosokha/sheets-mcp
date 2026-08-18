@@ -72,6 +72,7 @@ async def log_session(
     result: dict[str, Any] = {
         "profile": profile.name,
         "date": dates.render(target, profile.write_date_format),
+        "date_was_supplied": when is not None,
         "mode": plan.mode,
         "range": plan.a1_range,
         "rows": plan.rows,
@@ -92,7 +93,14 @@ async def log_session(
         [cell for cell in row[: len(written[index])]] if index < len(written) else []
         for index, row in enumerate(plan.rows)
     ]
-    log.info("session_written", profile=profile.name, range=plan.a1_range, mode=plan.mode)
+    log.info(
+        "session_written",
+        profile=profile.name,
+        range=plan.a1_range,
+        mode=plan.mode,
+        when_given=when,
+        resolved=target.isoformat(),
+    )
     return result
 
 

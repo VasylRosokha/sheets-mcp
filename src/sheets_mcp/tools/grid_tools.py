@@ -68,6 +68,8 @@ async def set_grid_value(
         "profile": profile.name,
         "period": period.name,
         "date": target.isoformat(),
+        "day": target.day,
+        "date_was_supplied": when is not None,
         "column": label,
         "address": address,
         "mode": mode,
@@ -87,7 +89,17 @@ async def set_grid_value(
     await client.write_range(profile.spreadsheet_id, address, [[new_text]])
     written = await client.read_range(profile.spreadsheet_id, address)
     result["written"] = written[0][0] if written and written[0] else ""
-    log.info("grid_value_written", profile=profile.name, address=address, mode=mode)
+    # `when_given` is logged separately from the resolved date: when an entry
+    # lands on the wrong day, the only thing worth knowing is whether the
+    # caller supplied a date or the server chose one.
+    log.info(
+        "grid_value_written",
+        profile=profile.name,
+        address=address,
+        mode=mode,
+        when_given=when,
+        resolved=target.isoformat(),
+    )
     return result
 
 

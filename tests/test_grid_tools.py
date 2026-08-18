@@ -307,3 +307,39 @@ async def test_the_day_number_lands_in_the_day_column() -> None:
     assert plan.rows[1][1] == "Програмування"
     assert plan.rows[2][0] == "1"
     assert plan.rows[-1][0] == "31"
+
+
+async def test_the_response_says_whether_the_caller_supplied_the_date() -> None:
+    """A value landing on the wrong day is invisible for weeks.
+
+    The one fact needed to diagnose it is whether the caller passed a date or
+    the server chose one — so both the response and the log now carry it.
+    """
+    client = FakeClient(SHEET)
+    chosen = await set_grid_value(runtime_with(client), "study", "Програмування", 1, when=JULY)
+    assert chosen["date_was_supplied"] is True
+    assert chosen["day"] == 1
+
+    # Omitting `when` resolves to today, so the fixture needs a block for
+    # whatever month this test happens to run in.
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    from sheets_mcp.profiles.models import GridProfile
+
+    profile = runtime_with(FakeClient(SHEET)).require_profile("study")
+    assert isinstance(profile, GridProfile)
+    now = datetime.now(ZoneInfo("Europe/Prague"))
+    this_month = profile.period_name_for(now.month)
+
+    sheet = [
+        ["", "", "", ""],
+        ["", "День", this_month, ""],
+        ["", "", "Програмування", "Читання"],
+        *[["", str(d), "", ""] for d in range(1, 32)],
+    ]
+    server_chose = await set_grid_value(
+        runtime_with(FakeClient(sheet)), "study", "Програмування", 1, dry_run=True
+    )
+    assert server_chose["date_was_supplied"] is False
+    assert server_chose["day"] == now.day

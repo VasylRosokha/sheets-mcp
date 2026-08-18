@@ -104,8 +104,15 @@ async def log_session(
     the owner writes it, typically `80x8x3` for weighted work or `8x3` for
     bodyweight. Do not convert, normalise, or reorder it.
 
-    `when` accepts `today` (the default), `yesterday`, `DD.MM.YYYY`, or
-    `YYYY-MM-DD`, and resolves in the server's timezone rather than yours.
+    **Do not pass `when` for "today" — omit it.** Do not compute today's date
+    yourself. Your idea of the current date comes from your own context and can
+    be a day off, or in a different timezone from the sheet's owner; the server
+    resolves it in the timezone the sheet is kept in. Pass `when` only when the
+    owner names a different day, using `yesterday` or an explicit
+    `DD.MM.YYYY` / `YYYY-MM-DD` that they gave you.
+
+    The response echoes `date`. Check it against what the owner said before
+    reporting success.
 
     `mode` is normally left as `auto`: it appends to the existing block when the
     date matches the sheet's last block, and starts a new block otherwise.
@@ -139,9 +146,21 @@ async def set_grid_value(
     a configured key or alias. Labels change between months in this sheet, so
     prefer one you have just seen in `describe_profile`.
 
+    **Do not pass `when` for "today" — omit it.** Do not compute today's date
+    yourself and pass it as a literal. Your idea of the current date comes from
+    your own context and can be a day off, or in a different timezone from the
+    sheet's owner; the server resolves `today` in the timezone the sheet is kept
+    in, which is the only definition that matches what the owner means. Pass
+    `when` only when they name a different day, and prefer `yesterday` over a
+    date you worked out.
+
     `value` is hours: `1`, `1.5`, or text like `"1.5h"`. Inputs are rounded to
     the profile's step, normally half an hour, and the rounded figure is
     reported back so you can tell the owner what was actually recorded.
+
+    The response echoes `date` and `day`. Check them against what the owner
+    said before reporting success — a value on the wrong day is invisible until
+    someone looks at the sheet weeks later.
 
     `mode` `set` replaces the cell. `increment` adds to whatever is already
     there — use it for "another hour of reading today", and prefer it over
