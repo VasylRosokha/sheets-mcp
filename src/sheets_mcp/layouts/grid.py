@@ -17,9 +17,10 @@ Two properties of the real sheet drive the design:
 
 from __future__ import annotations
 
+import calendar
 from dataclasses import dataclass
 
-from sheets_mcp.profiles.models import GridProfile, column_index
+from sheets_mcp.profiles.models import GridProfile, column_index, column_letter
 
 
 @dataclass(frozen=True, slots=True)
@@ -147,3 +148,116 @@ def _labels(row: list[str], day_at: int) -> tuple[tuple[str, ...], tuple[int, ..
             labels.append(value)
             columns.append(index)
     return tuple(labels), tuple(columns)
+
+
+@dataclass(frozen=True, slots=True)
+class BlockPlan:
+    """Exactly what `create_period_block` would write, computed before writing.
+
+    Shared by the dry run and the real call, so a dry run cannot describe
+    something different from what lands.
+    """
+
+    period: str
+    a1_range: str
+    rows: list[list[str]]
+    header_row: int
+    label_row: int
+    first_day_row: int
+    last_day_row: int
+    labels: tuple[str, ...]
+    label_columns: tuple[int, ...]
+
+
+def plan_period_block(
+    rows: list[list[str]],
+    profile: GridProfile,
+    *,
+    tab: str,
+    year: int,
+    month: int,
+    labels: tuple[str, ...] | None = None,
+) -> BlockPlan:
+    """Lay out a new month block below everything already in the sheet.
+
+    Day rows run to the month's real length, so February gets 28 or 29 rows
+    rather than the 31 every existing block carries (§7.5). That is what makes
+    "day 31 of a 30-day month" refusable by structure instead of by a special
+    case at write time.
+    """
+    day_at = column_index(profile.day_column)
+    existing = scan_periods(rows, profile)
+
+    # Default to the previous block's labels, not the configured ones: they are
+    # what the sheet actually used last, and §7.5 records the two diverging.
+    if labels is None:
+        labels = existing[-1].labels if existing else tuple(c.label for c in profile.columns)
+    label_columns = (
+        existing[-1].label_columns
+        if existing and len(existing[-1].label_columns) == len(labels)
+        else tuple(range(day_at + 1, day_at + 1 + len(labels)))
+    )
+
+    last_populated = _last_populated_row(rows)
+    # One blank separator row, matching how the existing blocks are spaced.
+    header_row = last_populated + 2
+    label_row = header_row - profile.period_header_offset + profile.label_row_offset
+    first_day_row = header_row - profile.period_header_offset
+    days = calendar.monthrange(year, month)[1]
+    last_day_row = first_day_row + days - 1
+
+    width = max([day_at, *label_columns]) + 1
+    period = profile.period_name_for(month)
+
+    header = [""] * width
+    header[day_at] = _day_column_heading(rows, day_at, existing)
+    # The name goes in the first label column only. Sheets reports a merged
+    # range's value in its first cell and empty everywhere else, so this matches
+    # how the existing merged headers read back.
+    header[label_columns[0]] = period
+
+    label_line = [""] * width
+    for label, column in zip(labels, label_columns, strict=True):
+        label_line[column] = label
+
+    day_rows = []
+    for day in range(1, days + 1):
+        row = [""] * width
+        row[day_at] = str(day)
+        day_rows.append(row)
+
+    start = min([day_at, *label_columns])
+    end = max([day_at, *label_columns])
+    a1_range = f"'{tab}'!{column_letter(start)}{header_row}:{column_letter(end)}{last_day_row}"
+
+    return BlockPlan(
+        period=period,
+        a1_range=a1_range,
+        rows=[header, label_line, *day_rows],
+        header_row=header_row,
+        label_row=label_row,
+        first_day_row=first_day_row,
+        last_day_row=last_day_row,
+        labels=labels,
+        label_columns=label_columns,
+    )
+
+
+def _day_column_heading(rows: list[list[str]], day_at: int, existing: list[Period]) -> str:
+    """Reuse whatever the previous block wrote above its day numbers.
+
+    Usually "День". Copied rather than configured, because it is the sheet's
+    own wording and nothing here needs to understand it.
+    """
+    if existing:
+        header = rows[existing[-1].header_row - 1] if existing[-1].header_row - 1 < len(rows) else []
+        if day_at < len(header) and header[day_at].strip():
+            return header[day_at].strip()
+    return ""
+
+
+def _last_populated_row(rows: list[list[str]]) -> int:
+    for offset in range(len(rows) - 1, -1, -1):
+        if any(cell.strip() for cell in rows[offset]):
+            return offset + 1
+    return 0

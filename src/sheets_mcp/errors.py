@@ -102,6 +102,55 @@ class TooManyValues(SheetsMcpError):
         )
 
 
+class ColumnNotFound(SheetsMcpError):
+    code = "COLUMN_NOT_FOUND"
+
+    def __init__(self, wanted: str, period: str, present: list[str]) -> None:
+        listed = ", ".join(repr(label) for label in present) if present else "(none)"
+        super().__init__(
+            f"No column matching {wanted!r} in the {period!r} block. That block carries: "
+            f"{listed}. Labels differ between periods in this sheet, so use one of these."
+        )
+
+
+class PeriodBlockMissing(SheetsMcpError):
+    code = "PERIOD_BLOCK_MISSING"
+
+    def __init__(self, period: str, present: list[str]) -> None:
+        listed = ", ".join(present) if present else "(none)"
+        super().__init__(
+            f"No block for {period!r} yet. Existing blocks: {listed}. "
+            f"Call create_period_block with period for {period!r} first."
+        )
+
+
+class PeriodExists(SheetsMcpError):
+    code = "PERIOD_EXISTS"
+
+    def __init__(self, period: str, row: int) -> None:
+        super().__init__(
+            f"A block for {period!r} already exists, starting at row {row}. "
+            "Write into it with set_grid_value rather than creating a second one."
+        )
+
+
+class DayOutOfRange(SheetsMcpError):
+    code = "ROW_NOT_FOUND"
+
+    def __init__(self, day: int, period: str, last_day: int) -> None:
+        super().__init__(f"Day {day} is outside the {period!r} block, which runs to day {last_day}.")
+
+
+class UnparseableCell(SheetsMcpError):
+    code = "UNPARSEABLE_CELL"
+
+    def __init__(self, address: str, raw: str) -> None:
+        super().__init__(
+            f"Cannot read the current value of {address}: {raw!r}. Increment needs to know "
+            "what is there before adding to it — fix the cell by hand, or use mode 'set'."
+        )
+
+
 class RateLimited(SheetsMcpError):
     code = "RATE_LIMITED"
 

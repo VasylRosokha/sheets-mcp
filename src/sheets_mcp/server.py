@@ -120,6 +120,73 @@ async def log_session(
 
 
 @mcp.tool()
+async def set_grid_value(
+    profile: str,
+    column: str,
+    value: float | str,
+    when: str | None = None,
+    mode: str = "set",
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    """Record time against one activity on one day in a `grid` profile.
+
+    Call `describe_profile` first. Two things it returns matter here:
+    `last_period_labels`, which is authoritative over anything in the
+    configuration, and `current_period_exists` — if that is false, call
+    `create_period_block` before this tool, not after it fails.
+
+    `column` accepts the label as it appears in that period's own label row, or
+    a configured key or alias. Labels change between months in this sheet, so
+    prefer one you have just seen in `describe_profile`.
+
+    `value` is hours: `1`, `1.5`, or text like `"1.5h"`. Inputs are rounded to
+    the profile's step, normally half an hour, and the rounded figure is
+    reported back so you can tell the owner what was actually recorded.
+
+    `mode` `set` replaces the cell. `increment` adds to whatever is already
+    there — use it for "another hour of reading today", and prefer it over
+    reading the value yourself and setting a total, which races with any other
+    edit.
+
+    The response carries `previous_value`. Relay it when the mode was `set` and
+    the cell was not empty: overwriting an existing entry is the one thing here
+    the owner cannot easily undo.
+    """
+    return await _guard(
+        tools.set_grid_value(runtime, profile, column, value, when=when, mode=mode, dry_run=dry_run)
+    )
+
+
+@mcp.tool()
+async def create_period_block(
+    profile: str,
+    period: str | None = None,
+    labels: list[str] | None = None,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    """Add a new month block to a `grid` profile, so values can be written into it.
+
+    Needed when `describe_profile` reports `current_period_exists: false`. It
+    appends a period header, a label row, and one row per day of that month's
+    real length — so a 30-day month gets 30 rows, and day 31 is then refusable
+    by structure rather than by a special case.
+
+    `period` is `YYYY-MM`, defaulting to the current month in the server's
+    timezone.
+
+    `labels` defaults to the previous block's labels, carrying forward what the
+    sheet actually used last rather than what the configuration claims. Pass it
+    explicitly only when the tracked activities are changing.
+
+    Refuses if a block for that period already exists, rather than creating a
+    second one.
+    """
+    return await _guard(
+        tools.create_period_block(runtime, profile, period=period, labels=labels, dry_run=dry_run)
+    )
+
+
+@mcp.tool()
 async def ping() -> str:
     """Check that the sheets server is reachable and report its local time.
 
