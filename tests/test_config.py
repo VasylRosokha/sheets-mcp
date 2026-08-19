@@ -66,9 +66,9 @@ def test_render_hostname_is_picked_up_automatically() -> None:
     # Without this the SDK's DNS-rebinding check rejects every real request
     # with 421 while every local test still passes.
     settings = Settings.from_env(
-        {"MCP_API_KEY": "k", "RENDER_EXTERNAL_HOSTNAME": "sheets-mcp-yshi.onrender.com"}
+        {"MCP_API_KEY": "k", "RENDER_EXTERNAL_HOSTNAME": "sheets-mcp-example.onrender.com"}
     )
-    assert settings.allowed_hosts[0] == "sheets-mcp-yshi.onrender.com"
+    assert settings.allowed_hosts[0] == "sheets-mcp-example.onrender.com"
     assert "localhost:*" in settings.allowed_hosts
 
 
@@ -86,7 +86,7 @@ def test_explicit_allowed_hosts_override_the_platform() -> None:
 
 def test_origins_are_https_for_real_hosts_and_http_for_local() -> None:
     settings = Settings.from_env(
-        {"MCP_API_KEY": "k", "RENDER_EXTERNAL_HOSTNAME": "sheets-mcp-yshi.onrender.com"}
+        {"MCP_API_KEY": "k", "RENDER_EXTERNAL_HOSTNAME": "sheets-mcp-example.onrender.com"}
     )
-    assert "https://sheets-mcp-yshi.onrender.com" in settings.allowed_origins
+    assert "https://sheets-mcp-example.onrender.com" in settings.allowed_origins
     assert "http://localhost:*" in settings.allowed_origins
