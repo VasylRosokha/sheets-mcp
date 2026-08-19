@@ -247,8 +247,7 @@ that computed its answer separately would be reassurance about nothing.
 
 ```bash
 uv sync
-$EDITOR profiles.yaml    # replace the two placeholder spreadsheet ids with your own
-cp .env.example .env     # MCP_API_KEY, GOOGLE_SERVICE_ACCOUNT_KEY
+cp .env.example .env     # MCP_API_KEY, GOOGLE_SERVICE_ACCOUNT_KEY, the two sheet ids
 
 uv run pytest      # 237 tests
 uv run mypy        # --strict, src and tests
@@ -260,10 +259,15 @@ uv run uvicorn sheets_mcp.server:app --port 8787
 Then share each spreadsheet with the service account's `client_email` — the
 `PERMISSION_DENIED` message tells you the address if you forget.
 
-`profiles.yaml` is committed with placeholder spreadsheet ids. The deployment
-supplies the real registry through `PROFILES_YAML`, which takes precedence over
-the file: ids are not credentials, but they are permanent pointers at personal
-data, and a clone has no reason to carry them.
+`profiles.yaml` refers to its spreadsheet ids as `${TRAINING_SPREADSHEET_ID}`
+and `${STUDY_SPREADSHEET_ID}`, filled from the environment at boot. Those are
+the only part of the registry that differs per deployment — an id is not a
+credential, but it is a permanent pointer at personal data, and a clone has no
+reason to carry one. Everything else stays in the file, versioned, in one copy.
+
+An unset placeholder is a startup failure naming the variable, not an empty
+string: a registry that boots with an empty id fails later, at Google, four
+layers from the cause.
 
 Deployment is a Render Blueprint (`render.yaml`); `deploy/` also carries the
 systemd + Caddy setup for a VPS. Both are documented in the spec.

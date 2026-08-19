@@ -275,6 +275,38 @@ profiles:
       must be read per block, never assumed from config.
 ```
 
+#### 7.2.1 Where the spreadsheet ids come from
+
+`profiles.yaml` refers to its ids as `${TRAINING_SPREADSHEET_ID}` and
+`${STUDY_SPREADSHEET_ID}`, substituted from the environment when the registry
+loads. They are the only part of the registry that differs per deployment: an id
+is not a credential — alone it opens nothing that has not been shared — but it is
+a permanent pointer at personal data, and a public clone has no reason to carry
+one.
+
+**This replaced a worse split, added the same day.** `PROFILES_YAML` supplies the
+*whole* registry from the environment, and was the first answer to the same
+problem. It is the wrong boundary, and it demonstrated why within the hour: a
+corrected profile description — text `list_profiles` hands to Claude as an
+instruction, not as documentation — was live in git and stale in production,
+because the file and the dashboard held separate copies of the structure and only
+one of them runs. Structure belongs in the file, versioned and singular. Only
+values that genuinely vary per deployment belong outside it.
+
+`PROFILES_YAML` remains as an escape hatch for a deployment that wants the
+registry fully external, and is documented as one.
+
+Two properties are load-bearing:
+
+- **An unset placeholder is a startup failure naming the variable.** Substituting
+  an empty string gives a registry that loads, validates, and then asks Google for
+  a spreadsheet whose id is `""` — a 404 four layers from the variable nobody set.
+- **Expansion happens after parsing, over string values only.** The first version
+  substituted into the raw text and rewrote the comment in `profiles.yaml` that
+  documents the syntax, which contains a literal `${NAME}`; every test then failed
+  asking for a variable called `NAME`. There is a test for that case specifically,
+  because the naive version is the one anybody would write again.
+
 ### 7.3 Value types
 
 | Type | Accepted input | Written as |

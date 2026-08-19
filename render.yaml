@@ -47,12 +47,15 @@ services:
         sync: false
       - key: GOOGLE_SERVICE_ACCOUNT_KEY
         sync: false
-      # The profile registry itself, as YAML (§7.2). The committed
-      # profiles.yaml carries placeholder spreadsheet ids so a public clone
-      # holds no pointers to private sheets; this is where the real ones live.
-      # Unset, the file is used — which is what a fork gets, and it validates
-      # and boots, it just cannot reach anything.
-      - key: PROFILES_YAML
+      # The two spreadsheet ids profiles.yaml refers to as ${...} (§7.2). Only
+      # these differ per deployment, so only these are out here; the layouts,
+      # columns and descriptions stay in the committed file where they can be
+      # reviewed and versioned. Unset, the process refuses to start and names
+      # the variable, rather than booting with an empty id and 404ing at Google
+      # four layers later.
+      - key: TRAINING_SPREADSHEET_ID
+        sync: false
+      - key: STUDY_SPREADSHEET_ID
         sync: false
       - key: TZ
         value: Europe/Prague
