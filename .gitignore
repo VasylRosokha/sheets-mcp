@@ -8,4 +8,3 @@ __pycache__/
 # Secrets — never commit. See §5.3 and §12.8 of the spec.
 .env
 *.json
-!profiles.example.json

@@ -30,7 +30,7 @@ class Runtime:
         self._client: SheetsClient | None = None
 
         if self.registry is None:
-            log.warning("no_profile_registry", hint="create profiles.yaml from profiles.example.yaml")
+            log.warning("no_profile_registry", hint="restore profiles.yaml, or set PROFILES_YAML")
         else:
             log.info("profiles_loaded", profiles=self.registry.names)
 

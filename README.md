@@ -234,8 +234,8 @@ that computed its answer separately would be reassurance about nothing.
 
 ```bash
 uv sync
-cp profiles.example.yaml profiles.yaml     # spreadsheet ids, tab names, columns
-cp .env.example .env                       # MCP_API_KEY, GOOGLE_SERVICE_ACCOUNT_KEY
+$EDITOR profiles.yaml    # replace the two placeholder spreadsheet ids with your own
+cp .env.example .env     # MCP_API_KEY, GOOGLE_SERVICE_ACCOUNT_KEY
 
 uv run pytest      # 232 tests
 uv run mypy        # --strict, src and tests
@@ -243,6 +243,14 @@ uv run ruff check
 
 uv run uvicorn sheets_mcp.server:app --port 8787
 ```
+
+Then share each spreadsheet with the service account's `client_email` — the
+`PERMISSION_DENIED` message tells you the address if you forget.
+
+`profiles.yaml` is committed with placeholder spreadsheet ids. The deployment
+supplies the real registry through `PROFILES_YAML`, which takes precedence over
+the file: ids are not credentials, but they are permanent pointers at personal
+data, and a clone has no reason to carry them.
 
 Deployment is a Render Blueprint (`render.yaml`); `deploy/` also carries the
 systemd + Caddy setup for a VPS. Both are documented in the spec.

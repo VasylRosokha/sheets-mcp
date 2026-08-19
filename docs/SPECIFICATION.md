@@ -236,7 +236,7 @@ profiles:
       row per exercise. Set notation is free-form text, typically
       weight x reps x sets (e.g. 80x8x3) for weighted exercises, or
       reps x sets (e.g. 8x3) for bodyweight exercises.
-    spreadsheet_id: 1GeDaU-qmrDjb2WjvfORqvmIfzT-MFTpTXckWOaS2t6M
+    spreadsheet_id: REPLACE_WITH_YOUR_TRAINING_SPREADSHEET_ID
     tab: <verify actual tab name>
     date_column: A
     item_column: A
@@ -251,7 +251,7 @@ profiles:
     description: >
       Monthly habit grid. One block per month; rows are days 1–31;
       columns are activities. Values are tally marks, one stroke per session.
-    spreadsheet_id: 1kmJ8Gmu3JlGIe9wn_KW3Dh04VhiRJ4zDtFEEynpG0Mk
+    spreadsheet_id: REPLACE_WITH_YOUR_STUDY_SPREADSHEET_ID
     tab: <verify actual tab name>
     day_column: B
     period_header_offset: -2     # rows above the first day row

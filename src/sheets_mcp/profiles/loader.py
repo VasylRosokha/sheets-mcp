@@ -89,9 +89,10 @@ def load_registry(path: str | Path | None = None) -> ProfileRegistry:
         raw = resolved.read_text(encoding="utf-8")
     except FileNotFoundError as exc:
         raise ProfileConfigError(
-            f"No profile registry at {resolved}. Copy profiles.example.yaml to "
-            f"{DEFAULT_FILENAME} and fill in the spreadsheet IDs and tab names, "
-            f"or set {ENV_INLINE} to the registry itself."
+            f"No profile registry at {resolved}. The repository ships a "
+            f"{DEFAULT_FILENAME} with placeholder spreadsheet ids — restore it and fill "
+            f"those in, point PROFILES_PATH at your own file, or set {ENV_INLINE} to the "
+            "registry itself."
         ) from exc
     except OSError as exc:
         raise ProfileConfigError(f"Could not read {resolved}: {exc}") from exc

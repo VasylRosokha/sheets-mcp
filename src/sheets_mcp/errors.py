@@ -225,6 +225,6 @@ class RegistryMissing(SheetsMcpError):
 
     def __init__(self) -> None:
         super().__init__(
-            "No profiles are configured. Create profiles.yaml from profiles.example.yaml, "
-            "filling in each spreadsheet id and tab name."
+            "No profiles are configured. Restore profiles.yaml and fill in each "
+            "spreadsheet id and tab name, or set PROFILES_YAML to the registry itself."
         )

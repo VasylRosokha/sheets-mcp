@@ -172,17 +172,20 @@ def test_empty_file_is_reported_clearly(tmp_path: Path) -> None:
         load_registry(path)
 
 
-def test_the_shipped_example_is_valid_apart_from_its_placeholders() -> None:
-    """The example must stay loadable, or it is documentation rather than a template."""
-    import yaml
+def test_the_committed_registry_loads_with_its_placeholder_ids() -> None:
+    """The shipped file must stay loadable, or it is documentation, not a template.
 
-    raw = yaml.safe_load(Path("profiles.example.yaml").read_text(encoding="utf-8"))
-    for profile in raw["profiles"]:
-        profile["tab"] = "FilledIn"
-    reg = ProfileRegistry.model_validate(raw)
+    It carries placeholder spreadsheet ids rather than real ones, so this also
+    pins that the loader does not validate id *format* — anything a clone puts
+    there reaches Google, and Google is the thing that gets to reject it.
+    """
+    reg = load_registry("profiles.yaml")
     assert reg.names == ["training", "study"]
     assert reg.resolve("gym") is not None
     assert reg.resolve("код") is None  # a column alias, not a profile alias
+    assert all(
+        profile.spreadsheet_id.startswith("REPLACE_WITH_YOUR") for profile in reg.profiles
+    ), "a real spreadsheet id has been committed to profiles.yaml"
 
 
 def test_grid_requires_all_twelve_period_names() -> None:
