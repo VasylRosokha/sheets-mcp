@@ -353,6 +353,10 @@ async def health(_request: Request) -> Response:
             "version": __version__,
             "tools": len(await mcp.list_tools()),
             "profiles": len(runtime.registry.profiles) if runtime.registry else 0,
+            # "env" or "file" — never the path, never the contents. Enough to
+            # tell which source a deploy is actually using, which is otherwise
+            # unknowable from outside until the two disagree.
+            "registry_source": runtime.registry_source,
         }
     )
 

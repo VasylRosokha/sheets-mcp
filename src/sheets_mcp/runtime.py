@@ -14,7 +14,7 @@ from pathlib import Path
 from sheets_mcp.config import Settings
 from sheets_mcp.errors import ProfileNotFound, RegistryMissing
 from sheets_mcp.logging import get_logger
-from sheets_mcp.profiles.loader import load_registry_if_present
+from sheets_mcp.profiles.loader import inline_registry, load_registry_if_present
 from sheets_mcp.profiles.models import Profile, ProfileRegistry
 from sheets_mcp.sheets.client import SheetsClient, build_client
 
@@ -26,13 +26,22 @@ class Runtime:
 
     def __init__(self, settings: Settings, *, registry_path: str | Path | None = None) -> None:
         self.settings = settings
+        # Recorded before loading, because afterwards the two sources are
+        # indistinguishable — which is exactly the confusion this answers. A
+        # deploy meant to read PROFILES_YAML but quietly still reading the file
+        # behaves identically until the file changes, and by then the change is
+        # the thing that gets blamed.
+        self.registry_source = (
+            "env" if registry_path is None and inline_registry() is not None else "file"
+        )
         self.registry: ProfileRegistry | None = load_registry_if_present(registry_path)
         self._client: SheetsClient | None = None
 
         if self.registry is None:
+            self.registry_source = "none"
             log.warning("no_profile_registry", hint="restore profiles.yaml, or set PROFILES_YAML")
         else:
-            log.info("profiles_loaded", profiles=self.registry.names)
+            log.info("profiles_loaded", profiles=self.registry.names, source=self.registry_source)
 
     def require_registry(self) -> ProfileRegistry:
         if self.registry is None:

@@ -260,3 +260,22 @@ def test_an_empty_variable_falls_through_to_the_file(monkeypatch: pytest.MonkeyP
     # as "a registry with no profiles".
     monkeypatch.setenv("PROFILES_YAML", "   ")
     assert load_registry_if_present("profiles.yaml") is not None
+
+
+def test_the_registry_source_is_reported(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`/health` has to be able to say which source a deploy is really using.
+
+    Without it the two are indistinguishable from outside until they disagree —
+    and the moment they disagree is the moment something has already broken.
+    """
+    from sheets_mcp.config import Settings
+    from sheets_mcp.runtime import Runtime
+
+    env = {"MCP_API_KEY": "k"}
+    monkeypatch.delenv("PROFILES_YAML", raising=False)
+    assert Runtime(Settings.from_env(env), registry_path="profiles.yaml").registry_source == "file"
+
+    monkeypatch.setenv("PROFILES_YAML", INLINE)
+    assert Runtime(Settings.from_env(env)).registry_source == "env"
+    # An explicit path still wins, and says so.
+    assert Runtime(Settings.from_env(env), registry_path="profiles.yaml").registry_source == "file"
