@@ -21,6 +21,11 @@ class Item:
 
     name: str
     values: tuple[str, ...]
+    # The 1-based sheet row, when this item was read from a sheet. None when it
+    # is being written, because it has no row until the write decides one.
+    # `update_row` needs it, and recovering it afterwards would mean scanning
+    # for a name that may legitimately appear in twenty blocks.
+    row: int | None = None
 
 
 @dataclass(slots=True)
@@ -65,7 +70,9 @@ def scan_blocks(rows: list[list[str]], profile: DatedBlockProfile) -> list[Block
             continue
 
         values = tuple(_cell(row, position).strip() for position in value_positions)
-        blocks[-1].items.append(Item(name=name, values=_drop_trailing_blanks(values)))
+        blocks[-1].items.append(
+            Item(name=name, values=_drop_trailing_blanks(values), row=offset + 1)
+        )
 
     return blocks
 

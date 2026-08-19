@@ -151,6 +151,44 @@ class UnparseableCell(SheetsMcpError):
         )
 
 
+class RowNotFound(SheetsMcpError):
+    code = "ROW_NOT_FOUND"
+
+    def __init__(self, row: int, last_populated: int) -> None:
+        super().__init__(
+            f"Row {row} holds nothing; the sheet's last populated row is {last_populated}. "
+            "This tool corrects rows that already exist — add new ones with the profile's write tool."
+        )
+
+
+class RowConflict(SheetsMcpError):
+    code = "ROW_CONFLICT"
+
+    def __init__(self, row: int, mismatches: dict[str, tuple[str, str]]) -> None:
+        # Each mismatch is spelled out rather than summarised. The caller has to
+        # decide whether the row moved or the value simply changed, and it can
+        # only do that by seeing both sides.
+        detail = "; ".join(
+            f"{column} is {actual!r}, not the expected {expected!r}"
+            for column, (expected, actual) in sorted(mismatches.items())
+        )
+        super().__init__(
+            f"Row {row} no longer matches what you read: {detail}. Nothing was written. "
+            "Re-read the row with find_row or query_rows before correcting it — the sheet "
+            "may have been edited in the Sheets app since."
+        )
+
+
+class ProtectedRow(SheetsMcpError):
+    code = "PROTECTED_ROW"
+
+    def __init__(self, row: int, reason: str, remedy: str) -> None:
+        # A structural row is one the layout's readers depend on. Overwriting it
+        # does not fail — it succeeds, and the sheet stops parsing correctly
+        # somewhere the writer never looks.
+        super().__init__(f"Row {row} {reason}. {remedy}")
+
+
 class BadRequest(SheetsMcpError):
     code = "BAD_REQUEST"
 

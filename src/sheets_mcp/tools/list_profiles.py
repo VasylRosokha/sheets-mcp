@@ -21,6 +21,16 @@ WRITE_TOOL = {
     "grid": "set_grid_value",
 }
 
+# Correcting something already written is a different tool from writing it, and
+# on a grid it is the *same* tool as writing — set_grid_value overwrites a cell
+# in place, so there is nothing for update_row to add and a raw string would
+# bypass its rounding.
+CORRECT_TOOL = {
+    "table": "update_row",
+    "dated-block": "update_row",
+    "grid": "set_grid_value",
+}
+
 
 async def list_profiles(runtime: Runtime) -> dict[str, Any]:
     registry = runtime.require_registry()
@@ -34,6 +44,8 @@ def _summarise(profile: Profile) -> dict[str, Any]:
         "description": profile.description.strip(),
         "layout": str(profile.layout),
         "write_tool": WRITE_TOOL[str(profile.layout)],
+        "correct_tool": CORRECT_TOOL[str(profile.layout)],
+        "read_tool": "query_rows",
     }
 
     # The shape of what is useful differs per layout, so the extra fields do

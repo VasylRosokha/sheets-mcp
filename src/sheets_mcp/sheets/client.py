@@ -137,6 +137,39 @@ class SheetsClient:
 
         return await self._run(call, spreadsheet_id=spreadsheet_id, a1_range=a1_range)
 
+    async def batch_write(
+        self, spreadsheet_id: str, updates: list[tuple[str, list[list[str]]]]
+    ) -> dict[str, Any]:
+        """Write several disjoint ranges in one request.
+
+        `update_row` changes named cells and must leave the rest of the row
+        alone. A single range covering them would overwrite everything between,
+        and reading the row first to fill the gaps back in would race with
+        anyone editing the sheet in the meantime. One batch of one-cell ranges
+        touches exactly the cells named and nothing else.
+        """
+        if not updates:
+            return {}
+
+        def call() -> dict[str, Any]:
+            request = (
+                self._service.spreadsheets()
+                .values()
+                .batchUpdate(
+                    spreadsheetId=spreadsheet_id,
+                    body={
+                        # RAW for the same reason as `write_range`: cell text
+                        # ultimately comes from a chat message, and a value
+                        # starting with `=` must be stored, not evaluated.
+                        "valueInputOption": "RAW",
+                        "data": [{"range": a1_range, "values": values} for a1_range, values in updates],
+                    },
+                )
+            )
+            return dict(request.execute())
+
+        return await self._run(call, spreadsheet_id=spreadsheet_id, a1_range=updates[0][0])
+
     async def _run(
         self,
         call: Any,

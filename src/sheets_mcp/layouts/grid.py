@@ -18,7 +18,9 @@ Two properties of the real sheet drive the design:
 from __future__ import annotations
 
 import calendar
+import re
 from dataclasses import dataclass
+from datetime import date
 
 from sheets_mcp.profiles.models import GridProfile, column_index, column_letter
 
@@ -269,3 +271,121 @@ def _last_populated_row(rows: list[list[str]]) -> int:
         if any(cell.strip() for cell in rows[offset]):
             return offset + 1
     return 0
+
+
+# --- dating the blocks ------------------------------------------------------
+#
+# A period header says "Серпень". It does not say which year, and the sheet has
+# no column that does. But every date filter and every "how many hours in July"
+# question needs one, so it has to be inferred — and inferred in a way that
+# survives a sheet that crosses New Year, which this one will in five months.
+
+
+_EXPLICIT_YEAR = re.compile(r"(19|20)\d{2}")
+
+
+@dataclass(frozen=True, slots=True)
+class DatedPeriod:
+    """A block with a calendar year attached, where one could be worked out."""
+
+    period: Period
+    year: int | None
+    month: int | None
+
+    def date_for(self, day: int) -> date | None:
+        if self.year is None or self.month is None:
+            return None
+        if day > calendar.monthrange(self.year, self.month)[1]:
+            return None
+        return date(self.year, self.month, day)
+
+
+def assign_dates(periods: list[Period], profile: GridProfile, today: date) -> list[DatedPeriod]:
+    """Attach a year to each block, newest first, walking backwards.
+
+    A header carrying a four-digit year is believed outright. Otherwise the
+    newest block is assumed to be the current year — unless its month is still
+    ahead of today, which means it belongs to last year — and each earlier block
+    inherits that year, decrementing whenever the month stops descending. Two
+    consecutive blocks named Грудень and Січень are then eleven months apart in
+    the right direction rather than eleven in the wrong one.
+
+    A header whose month cannot be recognised gets `month=None` rather than a
+    guess. Its rows are then excluded from date-filtered results, which is the
+    honest outcome: a block this code cannot place is one it cannot filter.
+    """
+    months = [_month_of(period.name, profile) for period in periods]
+    explicit = [_explicit_year(period.name) for period in periods]
+
+    years: list[int | None] = [None] * len(periods)
+
+    # Seed from the newest block that carries a month at all.
+    seed = next((index for index in range(len(periods) - 1, -1, -1) if months[index] is not None), None)
+    if seed is None:
+        return [
+            DatedPeriod(period=period, year=explicit[index], month=None)
+            for index, period in enumerate(periods)
+        ]
+
+    seed_month = months[seed]
+    assert seed_month is not None
+    year = explicit[seed] if explicit[seed] is not None else _seed_year(seed_month, today)
+    years[seed] = year
+
+    previous_month = seed_month
+    for index in range(seed - 1, -1, -1):
+        month = months[index]
+        if month is None:
+            years[index] = None
+            continue
+        if explicit[index] is not None:
+            year = explicit[index]
+        elif month >= previous_month:
+            # Walking backwards, months should descend. One that does not means
+            # the calendar rolled over between these two blocks.
+            year = (year or today.year) - 1
+        years[index] = year
+        previous_month = month
+
+    # Anything below the seed can only be later, so the same rule runs forward.
+    year = years[seed]
+    previous_month = seed_month
+    for index in range(seed + 1, len(periods)):
+        month = months[index]
+        if month is None:
+            years[index] = None
+            continue
+        if explicit[index] is not None:
+            year = explicit[index]
+        elif month <= previous_month:
+            year = (year or today.year) + 1
+        years[index] = year
+        previous_month = month
+
+    return [
+        DatedPeriod(period=period, year=years[index], month=months[index])
+        for index, period in enumerate(periods)
+    ]
+
+
+def _month_of(header: str, profile: GridProfile) -> int | None:
+    """Which configured month name the header carries, 1-based.
+
+    Substring rather than equality: a header may read "Серпень 2026", and the
+    year is exactly the extra text that makes an equality check fail.
+    """
+    folded = header.casefold()
+    for index, name in enumerate(profile.period_names):
+        if name.casefold() in folded:
+            return index + 1
+    return None
+
+
+def _explicit_year(header: str) -> int | None:
+    match = _EXPLICIT_YEAR.search(header)
+    return int(match.group()) if match else None
+
+
+def _seed_year(month: int, today: date) -> int:
+    """The newest block is this year, unless its month has not arrived yet."""
+    return today.year if month <= today.month else today.year - 1

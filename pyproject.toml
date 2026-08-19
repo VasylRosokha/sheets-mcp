@@ -44,6 +44,10 @@ packages = ["src/sheets_mcp"]
 
 [tool.pytest.ini_options]
 addopts = "-m 'not integration'"
+# So `tests.fakes` imports as a module rather than by whatever directory pytest
+# happened to prepend. Without it the shared fake is only importable from some
+# invocation directories, which is a confusing way to find out.
+pythonpath = ["."]
 markers = ["integration: hits a real spreadsheet; opt in with -m integration"]
 asyncio_mode = "auto"
 
