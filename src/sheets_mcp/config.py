@@ -45,6 +45,10 @@ class Settings:
     # without them, and an unparseable key is the Sheets client's error to
     # report, with the guidance about `base64 -w0` that goes with it.
     google_service_account_key: str | None
+    # Serve synthetic sheets from memory instead of Google (`--demo`). Kept in
+    # Settings rather than checked at the call site so exactly one thing decides
+    # it, and so the log line at startup records which mode the process is in.
+    demo: bool
 
     @property
     def allowed_origins(self) -> tuple[str, ...]:
@@ -78,7 +82,13 @@ class Settings:
         secret_path = _clean(source.get("MCP_SECRET_PATH"))
         allow_open = _clean(source.get("ALLOW_UNAUTHENTICATED")) in {"1", "true", "yes"}
 
-        if api_key is None and secret_path is None and not allow_open:
+        demo = _clean(source.get("SHEETS_MCP_DEMO")) in {"1", "true", "yes"}
+
+        # Demo mode waives it. There is nothing to protect: the sheets are
+        # generated in memory, there are no credentials in the process, and
+        # requiring a key would mean a reviewer has to invent one before they
+        # can see anything.
+        if api_key is None and secret_path is None and not allow_open and not demo:
             raise ConfigError(
                 "No authentication configured. Set MCP_API_KEY (preferred), "
                 "MCP_SECRET_PATH, or both. Set ALLOW_UNAUTHENTICATED=1 only for "
@@ -99,6 +109,7 @@ class Settings:
             log_level=_log_level(source.get("LOG_LEVEL")),
             allowed_hosts=_allowed_hosts(source),
             google_service_account_key=_clean(source.get("GOOGLE_SERVICE_ACCOUNT_KEY")),
+            demo=demo,
         )
 
 

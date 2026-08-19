@@ -14,9 +14,14 @@ from pathlib import Path
 from sheets_mcp.config import Settings
 from sheets_mcp.errors import ProfileNotFound, RegistryMissing
 from sheets_mcp.logging import get_logger
-from sheets_mcp.profiles.loader import inline_registry, load_registry_if_present
+from sheets_mcp.profiles.loader import (
+    inline_registry,
+    load_registry_if_present,
+    load_registry_text,
+)
 from sheets_mcp.profiles.models import Profile, ProfileRegistry
-from sheets_mcp.sheets.client import SheetsClient, build_client
+from sheets_mcp.sheets.backend import SheetsBackend
+from sheets_mcp.sheets.client import build_client
 
 log = get_logger(__name__)
 
@@ -34,8 +39,16 @@ class Runtime:
         self.registry_source = (
             "env" if registry_path is None and inline_registry() is not None else "file"
         )
-        self.registry: ProfileRegistry | None = load_registry_if_present(registry_path)
-        self._client: SheetsClient | None = None
+        if settings.demo:
+            from sheets_mcp import demo
+
+            self.registry_source = "demo"
+            self.registry: ProfileRegistry | None = load_registry_text(
+                demo.registry_yaml, source="the demo registry"
+            )
+        else:
+            self.registry = load_registry_if_present(registry_path)
+        self._client: SheetsBackend | None = None
 
         if self.registry is None:
             self.registry_source = "none"
@@ -60,7 +73,7 @@ class Runtime:
             raise ProfileNotFound(token, registry.names)
         return profile
 
-    def client(self) -> SheetsClient:
+    def client(self) -> SheetsBackend:
         """The Sheets client, built on first use.
 
         Failures are not cached. Credentials arrive from the environment, and
@@ -68,6 +81,12 @@ class Runtime:
         next request rather than needing a restart to clear a remembered error.
         """
         if self._client is None:
-            self._client = build_client(self.settings.google_service_account_key)
-            log.info("sheets_client_ready", client_email=self._client.client_email)
+            if self.settings.demo:
+                from sheets_mcp import demo
+
+                self._client = demo.build_backend()
+                log.info("demo_sheets_ready")
+            else:
+                self._client = build_client(self.settings.google_service_account_key)
+                log.info("sheets_client_ready", client_email=self._client.client_email)
         return self._client

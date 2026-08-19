@@ -34,6 +34,56 @@ changed.
 
 ---
 
+## Try it — no Google account, no credentials
+
+```bash
+git clone https://github.com/VasylRosokha/sheets-mcp
+cd sheets-mcp
+uv run sheets-mcp --demo
+```
+
+That serves both layouts from memory at `http://127.0.0.1:8787/mcp`, with
+authentication waived. Point any MCP client at it — `npx
+@modelcontextprotocol/inspector`, Claude Desktop, your own — and all nine tools
+work against synthetic sheets. Nothing touches Google. Changes are lost on
+restart, so break whatever you like.
+
+The fixture is not a happy path. It reproduces every property of the real sheets
+that made this harder than a wrapper around `values.update`:
+
+- two date formats in one column, as two years of typing produces
+- an exercise name that is one keystroke from a near-duplicate
+- columns renamed between periods — `Reading` becomes `Crypto`, `English`
+  becomes `x`
+- two duration notations, tally and hours, both always readable
+- a stray row below the last block with a day number and a value, no header
+- **no block for the current month**, so the affordance chain is the demo
+
+That last one is worth walking through. Ask it, in order:
+
+> what did I train recently?
+> how many hours have I programmed this year?
+> I studied for two hours today
+> I trained today — pull-ups 12x3
+> fix the last bench press, it was 90 not 85
+
+The third one cannot succeed yet. `describe_profile` reports
+`current_period_exists: false`, so a well-behaved client calls
+`create_period_block` first — and if it does not, the refusal names the tool to
+call rather than stating a fact. The new block inherits its labels from the
+sheet's last one, `Crypto` and `x` included, because that is what the sheet
+actually used.
+
+Then try to break it. These are refused by design, and the messages say why:
+
+| Try | |
+|---|---|
+| `update_row` on a block's date row | Merges two sessions, silently |
+| `update_row` on a blank separator | Same, from the other side |
+| `update_row` with a stale `expect` | The row moved under you |
+| `update_row` on the grid | `set_grid_value` owns those cells |
+| `find_row` on the grid | Nothing there is text |
+
 ## Why this is harder than it looks
 
 The obvious version of this server is a wrapper around `spreadsheets.values.update`.
@@ -249,7 +299,7 @@ that computed its answer separately would be reassurance about nothing.
 uv sync
 cp .env.example .env     # MCP_API_KEY, GOOGLE_SERVICE_ACCOUNT_KEY, the two sheet ids
 
-uv run pytest      # 237 tests
+uv run pytest      # 257 tests
 uv run mypy        # --strict, src and tests
 uv run ruff check
 
@@ -274,7 +324,7 @@ systemd + Caddy setup for a VPS. Both are documented in the spec.
 
 ## Testing
 
-237 tests, no network. The layout scanners and write planners are pure, so the
+257 tests, no network. The layout scanners and write planners are pure, so the
 interesting cases — a stray row without a header, a February block, a label that moved
 between months, a date row that would merge two sessions — are fixtures rather than
 integration tests.
@@ -284,6 +334,11 @@ That is deliberate: an earlier fake returned the whole sheet for every range, wh
 harmless for tools that only scan `A:N`, but `update_row` reads one row back to verify
 what landed — and a fake that ignored the range would have confirmed success no matter
 what was written.
+
+The demo backend is tested as a whole: create a block, write into it, read it back,
+find a row, correct it, and hit each refusal. Those are integration tests that need no
+network, and they double as a guard on the fixture — a demo that quietly drifted into a
+happy path would be a worse advertisement than no demo, and nothing else would notice.
 
 `mypy --strict` covers tests as well as source. A fake that has drifted from the
 interface it stands in for is how a green suite starts testing something the production

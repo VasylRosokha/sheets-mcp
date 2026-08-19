@@ -13,12 +13,12 @@ the ragged-row handling the real client has to do.
 
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import Any
 
 from sheets_mcp.config import Settings
 from sheets_mcp.profiles.models import column_index
 from sheets_mcp.runtime import Runtime
-from sheets_mcp.sheets.client import SheetsClient, SpreadsheetInfo
+from sheets_mcp.sheets.client import SpreadsheetInfo
 
 ENV = {"MCP_API_KEY": "k", "TZ": "Europe/Prague"}
 
@@ -32,7 +32,7 @@ class FakeSheet:
         self.tab = tab
         self.writes: list[tuple[str, list[list[str]]]] = []
         self.batches: list[tuple[str, list[list[str]]]] = []
-        self.client_email = "sheets-mcp@example.iam.gserviceaccount.com"
+        self.client_email: str | None = "sheets-mcp@example.iam.gserviceaccount.com"
 
     async def spreadsheet_info(self, spreadsheet_id: str) -> SpreadsheetInfo:
         return SpreadsheetInfo(title=self.title, tabs=(self.tab,))
@@ -101,8 +101,9 @@ def _digits(token: str) -> str:
 
 def runtime_with(sheet: FakeSheet, env: dict[str, str] | None = None) -> Runtime:
     runtime = Runtime(Settings.from_env(env or ENV), registry_path="profiles.yaml")
-    # cast rather than a Protocol: FakeSheet implements only the methods these
-    # tests reach, and widening SheetsClient into an interface to please a test
-    # would put indirection into production code for no production reason.
-    runtime._client = cast(SheetsClient, sheet)  # noqa: SLF001
+    # No cast. FakeSheet satisfies SheetsBackend structurally, so mypy checks it
+    # against the same protocol the tools consume — and a double that drifts
+    # from the interface it stands in for fails type-checking rather than
+    # quietly testing something production cannot do.
+    runtime._client = sheet  # noqa: SLF001
     return runtime

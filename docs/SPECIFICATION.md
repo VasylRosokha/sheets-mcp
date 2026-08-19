@@ -1275,6 +1275,41 @@ Idempotency keys, rate limiting, structured errors, log redaction, health check,
 
 ---
 
+## 14.1 The demo server
+
+`sheets-mcp --demo` serves both layouts from memory: no Google account, no
+service-account key, no authentication. Added 19 August 2026.
+
+**Why.** The repository could be cloned and its tests run, but the server itself
+could not be used by anyone else: it sits behind a secret path and points at
+private spreadsheets. Screenshots prove a thing worked once. A demo lets someone
+exercise all nine tools and reach their own conclusion.
+
+**The fixture is deliberately not a happy path.** It reproduces two date formats
+in one column, a near-duplicate exercise name, columns renamed between periods,
+both duration notations, the §7.5 stray row below the last block, and — the one
+that matters most — no block for the current month, so the affordance chain
+(`describe_profile` reports `current_period_exists: false` → `create_period_block`
+→ write) is what a reviewer walks through rather than a single successful call.
+
+Everything is generated relative to today, so the demo never looks abandoned and
+the grid's month lengths are real.
+
+**What it forced.** `Runtime` previously returned a concrete `SheetsClient`, and
+the tests reached it by casting a double into place — which works, and quietly
+means nothing checks that the double still matches what it stands in for. The
+demo needed a second real implementation, so the four methods the nine tools
+actually use became `SheetsBackend`, a protocol. The casts went with it: a fake
+that drifts from the interface now fails type-checking rather than testing
+something production cannot do.
+
+The demo backend is covered by integration tests that need no network — create a
+block, write, read back, find, correct, and each refusal. They also guard the
+fixture. A demo that drifted into a happy path would be a worse advertisement
+than no demo, and nothing else would notice.
+
+---
+
 ## 15. Testing
 
 ### Unit

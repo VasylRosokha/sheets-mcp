@@ -157,6 +157,15 @@ def _expand(parsed: object, *, source: str) -> object:
     return expanded
 
 
+def load_registry_text(raw: str, *, source: str) -> ProfileRegistry:
+    """Validate a registry already in hand, naming `source` in any error.
+
+    Used by `PROFILES_YAML` and by the demo server, both of which have the YAML
+    without having a file it came from.
+    """
+    return _validate(raw, source=source)
+
+
 def _validate(raw: str, *, source: str) -> ProfileRegistry:
     try:
         parsed = yaml.safe_load(raw)
