@@ -7,15 +7,16 @@
 # Changing a `name` or an alias changes what Claude can be asked for, so treat
 # those as a public interface.
 #
-# The spreadsheet ids here are placeholders. They are not secrets — an id alone
-# opens nothing that has not been shared — but they are permanent pointers at
-# personal data, and a public clone has no reason to carry them. The deployed
-# service supplies the real registry through PROFILES_YAML, which takes
-# precedence over this file entirely (§7.2).
+# ${NAME} is read from the environment. The spreadsheet ids come from there
+# because they are the only part of this file that differs per deployment: an id
+# is not a secret — alone it opens nothing that has not been shared — but it is
+# a permanent pointer at personal data, and a public clone has no reason to
+# carry one. Everything else lives here, in git, in one copy.
 #
-# To run this against your own sheets: replace both ids, share each spreadsheet
-# with the service account's client_email, and check the tab names match what
-# is at the bottom of the Sheets window.
+# To run this against your own sheets: export TRAINING_SPREADSHEET_ID and
+# STUDY_SPREADSHEET_ID (or just write the ids in place of the placeholders),
+# share each spreadsheet with the service account's client_email, and check the
+# tab names against the labels at the bottom of the Sheets window.
 
 profiles:
   - name: training
@@ -26,7 +27,7 @@ profiles:
       row per exercise. Set notation is free-form text, typically
       weight x reps x sets (e.g. 80x8x3) for weighted exercises, or
       reps x sets (e.g. 8x3) for bodyweight exercises.
-    spreadsheet_id: REPLACE_WITH_YOUR_TRAINING_SPREADSHEET_ID
+    spreadsheet_id: ${TRAINING_SPREADSHEET_ID}
     tab: Лист1
     date_column: A
     item_column: A
@@ -46,7 +47,7 @@ profiles:
       rounded to the half hour. Blocks before 17 August 2026 use tally marks
       ("|" is an hour, "-" is thirty minutes); those are still read, and
       nothing rewrites them.
-    spreadsheet_id: REPLACE_WITH_YOUR_STUDY_SPREADSHEET_ID
+    spreadsheet_id: ${STUDY_SPREADSHEET_ID}
     tab: Лист1
     day_column: B
     period_header_offset: -2   # rows above the first day row

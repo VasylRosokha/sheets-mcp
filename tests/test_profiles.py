@@ -183,9 +183,17 @@ def test_the_committed_registry_loads_with_its_placeholder_ids() -> None:
     assert reg.names == ["training", "study"]
     assert reg.resolve("gym") is not None
     assert reg.resolve("код") is None  # a column alias, not a profile alias
-    assert all(
-        profile.spreadsheet_id.startswith("REPLACE_WITH_YOUR") for profile in reg.profiles
-    ), "a real spreadsheet id has been committed to profiles.yaml"
+    # Checked against the file's own text, not the loaded value: the loaded one
+    # has already had the environment substituted in, so it would pass on any
+    # machine that has the real ids exported — which is every machine that runs
+    # this for real.
+    raw = Path("profiles.yaml").read_text(encoding="utf-8")
+    ids = [line for line in raw.splitlines() if "spreadsheet_id:" in line]
+    assert len(ids) == 2
+    assert all("${" in line for line in ids), (
+        "a literal spreadsheet id has been committed to profiles.yaml; "
+        "use ${TRAINING_SPREADSHEET_ID} / ${STUDY_SPREADSHEET_ID} instead"
+    )
 
 
 def test_grid_requires_all_twelve_period_names() -> None:
@@ -279,3 +287,72 @@ def test_the_registry_source_is_reported(monkeypatch: pytest.MonkeyPatch) -> Non
     assert Runtime(Settings.from_env(env)).registry_source == "env"
     # An explicit path still wins, and says so.
     assert Runtime(Settings.from_env(env), registry_path="profiles.yaml").registry_source == "file"
+
+
+# --- ${NAME} expansion ------------------------------------------------------
+
+
+PLACEHOLDER_YAML = """
+profiles:
+  - name: t
+    layout: dated-block
+    description: ${WHICH_SHEET} log
+    spreadsheet_id: ${SOME_SHEET_ID}
+    tab: Sheet1
+    date_column: A
+    item_column: A
+    value_columns: [B]
+    date_formats: ["DD.MM.YYYY"]
+    write_date_format: "DD.MM.YYYY"
+"""
+
+
+def test_placeholders_are_filled_from_the_environment(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("SOME_SHEET_ID", "1abcdef")
+    monkeypatch.setenv("WHICH_SHEET", "Training")
+    path = tmp_path / "profiles.yaml"
+    path.write_text(PLACEHOLDER_YAML, encoding="utf-8")
+
+    profile = load_registry(path).profiles[0]
+    assert profile.spreadsheet_id == "1abcdef"
+    assert profile.description == "Training log"
+
+
+def test_an_unset_placeholder_names_the_variable(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # Substituting an empty string instead would load, validate, and then ask
+    # Google for a spreadsheet whose id is "" — a 404 four layers away from the
+    # variable nobody set.
+    monkeypatch.delenv("SOME_SHEET_ID", raising=False)
+    monkeypatch.setenv("WHICH_SHEET", "Training")
+    path = tmp_path / "profiles.yaml"
+    path.write_text(PLACEHOLDER_YAML, encoding="utf-8")
+
+    with pytest.raises(ProfileConfigError, match="SOME_SHEET_ID"):
+        load_registry(path)
+
+
+def test_an_empty_variable_counts_as_unset(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("SOME_SHEET_ID", "   ")
+    monkeypatch.setenv("WHICH_SHEET", "Training")
+    path = tmp_path / "profiles.yaml"
+    path.write_text(PLACEHOLDER_YAML, encoding="utf-8")
+
+    with pytest.raises(ProfileConfigError, match="SOME_SHEET_ID"):
+        load_registry(path)
+
+
+def test_comments_are_not_expanded(tmp_path: Path) -> None:
+    """The bug this shipped with for about ten minutes.
+
+    Expanding the raw text rewrote the comment in profiles.yaml that documents
+    the feature — the one containing a literal ${NAME} — and every test failed
+    asking for a variable called NAME. Expansion happens after parsing, so a
+    comment cannot participate.
+    """
+    path = tmp_path / "profiles.yaml"
+    path.write_text("# ${NOT_A_REAL_VARIABLE} explains the syntax\n" + INLINE, encoding="utf-8")
+    assert load_registry(path).names == ["inline"]

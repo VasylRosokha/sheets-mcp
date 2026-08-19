@@ -9,6 +9,7 @@ is who will read them.
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 
 import yaml
@@ -27,6 +28,20 @@ DEFAULT_FILENAME = "profiles.yaml"
 # opaque and is only ever pasted; this is line-oriented and gets edited in a
 # dashboard text box, which base64 would make impossible.
 ENV_INLINE = "PROFILES_YAML"
+
+# `${NAME}` anywhere in the registry is replaced by that environment variable.
+#
+# This is the mechanism that keeps spreadsheet ids out of a public repository
+# without taking the rest of the registry with them. PROFILES_YAML can do that
+# too, by supplying the whole file from the environment — but then the file and
+# the deployment hold separate copies of the *structure*, and they drift. That
+# is not hypothetical: within an hour of adding it, a corrected profile
+# description was live in git and stale in production, because only the ids had
+# ever needed to differ and the whole registry had been moved anyway.
+#
+# So: structure in the file, versioned and reviewed and singular. Only the
+# values that genuinely vary per deployment come from the environment.
+_PLACEHOLDER = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
 
 
 class ProfileConfigError(RuntimeError):
@@ -100,6 +115,48 @@ def load_registry(path: str | Path | None = None) -> ProfileRegistry:
     return _validate(raw, source=str(resolved))
 
 
+def _expand(parsed: object, *, source: str) -> object:
+    """Substitute `${NAME}` from the environment across the parsed registry.
+
+    After parsing rather than over the raw text. Substituting into the text
+    would reach into comments and into any description that happened to mention
+    a placeholder — which is not a hypothetical: the first version of this
+    rewrote the comment in `profiles.yaml` that documents the feature, and every
+    test failed asking for a variable named NAME.
+
+    Unset variables are an error rather than an empty string. Substituting
+    nothing would produce a registry that loads, validates, and then asks Google
+    for a spreadsheet whose id is empty — a 404 four layers from the variable
+    that was never set.
+    """
+    missing: list[str] = []
+
+    def replace(match: re.Match[str]) -> str:
+        value = os.environ.get(match.group(1), "").strip()
+        if not value:
+            missing.append(match.group(1))
+            return match.group(0)
+        return value
+
+    def walk(node: object) -> object:
+        if isinstance(node, str):
+            return _PLACEHOLDER.sub(replace, node)
+        if isinstance(node, dict):
+            return {key: walk(value) for key, value in node.items()}
+        if isinstance(node, list):
+            return [walk(item) for item in node]
+        return node
+
+    expanded = walk(parsed)
+    if missing:
+        listed = ", ".join(sorted(set(missing)))
+        raise ProfileConfigError(
+            f"{source} refers to environment variable(s) that are unset or empty: {listed}. "
+            "Set them, or write literal values in place of the placeholders."
+        )
+    return expanded
+
+
 def _validate(raw: str, *, source: str) -> ProfileRegistry:
     try:
         parsed = yaml.safe_load(raw)
@@ -112,7 +169,7 @@ def _validate(raw: str, *, source: str) -> ProfileRegistry:
         raise ProfileConfigError(f"{source} must be a mapping with a top-level `profiles:` key")
 
     try:
-        return ProfileRegistry.model_validate(parsed)
+        return ProfileRegistry.model_validate(_expand(parsed, source=source))
     except ValidationError as exc:
         raise ProfileConfigError(f"{source} is invalid:\n{_render(exc)}") from exc
 
