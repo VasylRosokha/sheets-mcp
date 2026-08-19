@@ -1,5 +1,9 @@
 # sheets-mcp
 
+[![CI](https://github.com/VasylRosokha/sheets-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/VasylRosokha/sheets-mcp/actions/workflows/ci.yml)
+[![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
+[![Checked with mypy](https://img.shields.io/badge/mypy-strict-blue.svg)](https://mypy-lang.org/)
+
 A remote [MCP](https://modelcontextprotocol.io) server that lets Claude read and write my
 personal Google Sheets — from a laptop, or from a phone on a train.
 
