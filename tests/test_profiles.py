@@ -208,3 +208,52 @@ def test_duplicate_period_names_are_rejected() -> None:
     dupe = {**STUDY, "period_names": ["Січень"] * 12}
     with pytest.raises(ValueError, match="duplicate period name"):
         registry(dupe)
+
+
+# --- the registry supplied inline through the environment -------------------
+
+
+INLINE = """
+profiles:
+  - name: inline
+    layout: dated-block
+    description: A registry that never touched the filesystem.
+    spreadsheet_id: 1inline
+    tab: Sheet1
+    date_column: A
+    item_column: A
+    value_columns: [B]
+    date_formats: ["DD.MM.YYYY"]
+    write_date_format: "DD.MM.YYYY"
+"""
+
+
+def test_profiles_yaml_env_supplies_the_registry_without_a_file(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # What lets a public repository ship placeholder spreadsheet ids while the
+    # deployment points at the real sheets.
+    monkeypatch.setenv("PROFILES_YAML", INLINE)
+    assert load_registry().names == ["inline"]
+
+
+def test_an_explicit_path_beats_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Otherwise a developer with PROFILES_YAML exported would silently run the
+    # whole suite against their own sheets rather than the fixtures.
+    monkeypatch.setenv("PROFILES_YAML", INLINE)
+    assert load_registry("profiles.yaml").names == ["training", "study"]
+
+
+def test_an_invalid_inline_registry_names_the_variable_not_a_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PROFILES_YAML", "profiles: []")
+    with pytest.raises(ProfileConfigError, match=r"\$PROFILES_YAML is invalid"):
+        load_registry()
+
+
+def test_an_empty_variable_falls_through_to_the_file(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Render exports an unset variable as the empty string, which must not read
+    # as "a registry with no profiles".
+    monkeypatch.setenv("PROFILES_YAML", "   ")
+    assert load_registry_if_present("profiles.yaml") is not None

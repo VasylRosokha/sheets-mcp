@@ -18,6 +18,16 @@ from sheets_mcp.profiles.models import ProfileRegistry
 
 DEFAULT_FILENAME = "profiles.yaml"
 
+# The registry inline, as YAML, rather than as a path to a file. It exists so a
+# public repository does not have to carry the spreadsheet ids of private
+# sheets: they are not credentials, but they are permanent pointers at personal
+# data, and there is no reason for them to be in a clone.
+#
+# Raw YAML rather than base64, unlike GOOGLE_SERVICE_ACCOUNT_KEY. The key is
+# opaque and is only ever pasted; this is line-oriented and gets edited in a
+# dashboard text box, which base64 would make impossible.
+ENV_INLINE = "PROFILES_YAML"
+
 
 class ProfileConfigError(RuntimeError):
     """Raised at boot when `profiles.yaml` is missing, malformed, or invalid."""
@@ -52,13 +62,27 @@ def registry_path(explicit: str | Path | None = None) -> Path:
     return Path(__file__).resolve().parents[3] / DEFAULT_FILENAME
 
 
+def inline_registry() -> str | None:
+    """The registry supplied directly in the environment, if any."""
+    return os.environ.get(ENV_INLINE, "").strip() or None
+
+
 def load_registry(path: str | Path | None = None) -> ProfileRegistry:
     """Read, parse, and validate the profile registry.
 
-    Every failure mode is converted to `ProfileConfigError` with the file path
-    in the message. A `yaml` or `pydantic` traceback would name a line number
-    in a library the reader did not write.
+    An explicit `path` always wins, so a test names its own fixture and cannot
+    be affected by whatever the developer has exported. Otherwise `PROFILES_YAML`
+    is used if set, then `PROFILES_PATH`, then the file beside `pyproject.toml`.
+
+    Every failure mode is converted to `ProfileConfigError` naming its source. A
+    `yaml` or `pydantic` traceback would name a line number in a library the
+    reader did not write.
     """
+    if path is None:
+        inline = inline_registry()
+        if inline is not None:
+            return _validate(inline, source=f"${ENV_INLINE}")
+
     resolved = registry_path(path)
 
     try:
@@ -66,25 +90,30 @@ def load_registry(path: str | Path | None = None) -> ProfileRegistry:
     except FileNotFoundError as exc:
         raise ProfileConfigError(
             f"No profile registry at {resolved}. Copy profiles.example.yaml to "
-            f"{DEFAULT_FILENAME} and fill in the spreadsheet IDs and tab names."
+            f"{DEFAULT_FILENAME} and fill in the spreadsheet IDs and tab names, "
+            f"or set {ENV_INLINE} to the registry itself."
         ) from exc
     except OSError as exc:
         raise ProfileConfigError(f"Could not read {resolved}: {exc}") from exc
 
+    return _validate(raw, source=str(resolved))
+
+
+def _validate(raw: str, *, source: str) -> ProfileRegistry:
     try:
         parsed = yaml.safe_load(raw)
     except yaml.YAMLError as exc:
-        raise ProfileConfigError(f"{resolved} is not valid YAML: {exc}") from exc
+        raise ProfileConfigError(f"{source} is not valid YAML: {exc}") from exc
 
     if parsed is None:
-        raise ProfileConfigError(f"{resolved} is empty; it needs a top-level `profiles:` list")
+        raise ProfileConfigError(f"{source} is empty; it needs a top-level `profiles:` list")
     if not isinstance(parsed, dict):
-        raise ProfileConfigError(f"{resolved} must be a mapping with a top-level `profiles:` key")
+        raise ProfileConfigError(f"{source} must be a mapping with a top-level `profiles:` key")
 
     try:
         return ProfileRegistry.model_validate(parsed)
     except ValidationError as exc:
-        raise ProfileConfigError(f"{resolved} is invalid:\n{_render(exc)}") from exc
+        raise ProfileConfigError(f"{source} is invalid:\n{_render(exc)}") from exc
 
 
 def load_registry_if_present(path: str | Path | None = None) -> ProfileRegistry | None:
@@ -100,6 +129,9 @@ def load_registry_if_present(path: str | Path | None = None) -> ProfileRegistry 
     "no profiles are configured" rather than being handed an empty list and
     left to infer it.
     """
+    if path is None and inline_registry() is not None:
+        return load_registry()
+
     resolved = registry_path(path)
     if not resolved.exists():
         return None
