@@ -1,0 +1,39 @@
+# The same three commands that gate a commit locally. Nothing here is
+# CI-specific, which is the point: if this passes and a laptop does not, the
+# difference is the laptop.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        # --frozen so a lockfile that has drifted from pyproject.toml fails here
+        # rather than resolving to something no one has run.
+        run: uv sync --frozen
+
+      - name: Lint
+        run: uv run ruff check src tests
+
+      - name: Type check
+        # --strict comes from pyproject.toml. It covers tests as well as src:
+        # a fake that has drifted from the interface it stands in for is how a
+        # green suite starts testing something the production code cannot do.
+        run: uv run mypy
+
+      - name: Test
+        # Integration tests are excluded by default (pyproject addopts) because
+        # they need credentials and a real spreadsheet. Everything else runs.
+        run: uv run pytest -q
