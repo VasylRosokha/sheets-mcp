@@ -3,13 +3,13 @@ from __future__ import annotations
 from datetime import date
 
 import pytest
-from tests.fakes import FakeSheet, runtime_with
 
 from sheets_mcp.errors import ValidationError, WrongLayout
 from sheets_mcp.layouts import grid
 from sheets_mcp.layouts.grid import Period
 from sheets_mcp.profiles.models import GridProfile
 from sheets_mcp.tools import find_row, query_rows
+from tests.fakes import FakeSheet, runtime_with
 
 # Rows 1..8. Two blocks either side of a month boundary, with one exercise
 # appearing in both — which is the case find_row has to rank rather than just

@@ -61,3 +61,10 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.isort]
+# Stated rather than inferred. Ruff decides first-party by probing the
+# filesystem, so adding tests/__init__.py silently reclassified `tests` and
+# every already-checked file became unsorted — invisibly on a warm cache, and
+# only in CI. Naming both packages makes the answer the same everywhere.
+known-first-party = ["sheets_mcp", "tests"]

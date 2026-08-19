@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import pytest
-from tests.fakes import FakeSheet, runtime_with
 
 from sheets_mcp.errors import (
     ProtectedRow,
@@ -11,6 +10,7 @@ from sheets_mcp.errors import (
     WrongLayout,
 )
 from sheets_mcp.tools import update_row
+from tests.fakes import FakeSheet, runtime_with
 
 # Rows 1..8, matching the read-tools fixture so a find_row result can be fed
 # straight in.
