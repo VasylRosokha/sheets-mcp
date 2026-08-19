@@ -250,7 +250,7 @@ uv sync
 $EDITOR profiles.yaml    # replace the two placeholder spreadsheet ids with your own
 cp .env.example .env     # MCP_API_KEY, GOOGLE_SERVICE_ACCOUNT_KEY
 
-uv run pytest      # 232 tests
+uv run pytest      # 237 tests
 uv run mypy        # --strict, src and tests
 uv run ruff check
 
@@ -270,7 +270,7 @@ systemd + Caddy setup for a VPS. Both are documented in the spec.
 
 ## Testing
 
-232 tests, no network. The layout scanners and write planners are pure, so the
+237 tests, no network. The layout scanners and write planners are pure, so the
 interesting cases — a stray row without a header, a February block, a label that moved
 between months, a date row that would merge two sessions — are fixtures rather than
 integration tests.

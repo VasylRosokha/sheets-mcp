@@ -41,8 +41,11 @@ profiles:
     aliases: [learning, навчання, habits]
     layout: grid
     description: >
-      Monthly habit grid. One block per month; rows are days 1-31;
-      columns are activities. Values are tally marks, one stroke per session.
+      Monthly habit grid. One block per month, one row per day of that month,
+      columns are activities. Durations are written as hours — 1h, 1.5h —
+      rounded to the half hour. Blocks before 17 August 2026 use tally marks
+      ("|" is an hour, "-" is thirty minutes); those are still read, and
+      nothing rewrites them.
     spreadsheet_id: REPLACE_WITH_YOUR_STUDY_SPREADSHEET_ID
     tab: Лист1
     day_column: B
