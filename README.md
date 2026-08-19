@@ -7,16 +7,25 @@
 A remote [MCP](https://modelcontextprotocol.io) server that lets Claude read and write my
 personal Google Sheets — from a laptop, or from a phone on a train.
 
-```
-me:      I trained today. Pull-ups 10x3, dips 12x3.
-Claude:  Logged to 19.08.2026 — Підтягування 10x3, Віджимання на брусях 12x3.
+<table>
+<tr>
+<td width="33%"><img src="docs/images/query-hours.jpg" alt="Claude answering how many hours were programmed this year, with a chart by month"></td>
+<td width="33%"><img src="docs/images/log-session.jpg" alt="Claude confirming a training session was written and verified"></td>
+<td width="33%"><img src="docs/images/sheet-after-write.jpg" alt="The Google Sheet showing the new block at rows 362 to 364"></td>
+</tr>
+<tr>
+<td><b>Read.</b> 137 hours over 76 days, summed across eight monthly blocks written in two
+different notations. The server returns the totals; Claude drew the chart.</td>
+<td><b>Write.</b> Free-form set notation, parsed into the sheet's own conventions and
+read back to confirm what landed.</td>
+<td><b>The sheet.</b> The block Claude reported at <code>A362:G364</code>, with the blank
+separator row at 361 that the layout depends on — and the sheet's own formatting, because
+the server writes values and never formatting.</td>
+</tr>
+</table>
 
-me:      how many hours have I programmed this year?
-Claude:  137 hours across 8 months. Biggest was March at 41.
-
-me:      fix the bench entry from 28 June, it was 85 not 80
-Claude:  Found it at row 284. Changing E from 80x8x3 to 85x8x3 — confirm?
-```
+Those are unedited screenshots of the same three minutes: a question, a write, and the
+spreadsheet afterwards.
 
 The sheets are real ones I have kept for years: a training log in Ukrainian with 54
 sessions, and a habit grid with eight monthly blocks. Neither was designed to be
