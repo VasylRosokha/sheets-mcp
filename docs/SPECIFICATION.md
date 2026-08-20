@@ -747,6 +747,32 @@ Every tool's `description` field is read by Claude before use. Write them as ins
 
 Column descriptions matter equally. `"Вага — the working weight in kilograms, numeric only, no unit suffix"` prevents a whole class of malformed writes.
 
+### 9.1.1 Constrained arguments are `Literal`, not `str`
+
+`mode`, `order` and anything else with a fixed set of legal values is declared
+as a `Literal` on the tool function. MCP publishes the difference as a
+JSON-schema `enum`:
+
+```json
+"mode": {"type": "string", "default": "set"}                      // str
+"mode": {"enum": ["set", "increment"], "default": "set"}          // Literal
+```
+
+The first tells the model the argument is a string and leaves the legal values
+in the docstring, as prose it has to read and infer from. The second puts them
+in the schema the tool call is validated against, so an invalid one cannot be
+sent — rather than being sent, rejected, and retried.
+
+**This drifted once.** §8.7 and §8.8 declared all three as `Literal` from the
+start; the implementation shipped them as `str` and nothing noticed, because the
+runtime validation makes it *work*. It works less well than it was designed to,
+which is the kind of gap no test fails on. `tests/test_tool_schemas.py` now
+compares each published enum against the tuple the runtime check uses, so the
+two cannot separate again.
+
+The runtime checks stay regardless. They are the only guard when the tool
+functions are called directly, which is how every test reaches them.
+
 ### 9.2 Date defaults
 
 `default: today` resolves in the server's configured timezone (`TZ=Europe/Prague`), not UTC. A workout logged at 23:30 must land on that day's date, not tomorrow's.

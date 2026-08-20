@@ -4,6 +4,14 @@ Tool docstrings here are prompts, not documentation (§9.1). They are the only
 instructions the model gets about when a tool applies and what its arguments
 mean, so they say when *not* to call something as explicitly as when to.
 
+Constrained arguments are declared as `Literal`, not `str`. MCP publishes the
+difference as a JSON-schema `enum`, which moves the legal values out of the
+docstring prose and into the schema the model's tool call is checked against —
+so an invalid one cannot be sent at all, rather than costing a round trip to be
+told about. The runtime checks in the tool modules stay regardless: they are the
+only guard when those functions are called directly, which is how the tests
+reach them.
+
 Every tool converts a `SheetsMcpError` into a structured result rather than
 letting it propagate. An exception escaping into the transport reaches the user
 as an opaque tool failure; a returned error object reaches them as a sentence
@@ -13,7 +21,7 @@ telling them what to fix.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from mcp.server import MCPServer
 from mcp.server.transport_security import TransportSecuritySettings
@@ -92,7 +100,7 @@ async def query_rows(
     until: str | None = None,
     contains: str | None = None,
     limit: int = 20,
-    order: str = "desc",
+    order: Literal["asc", "desc"] = "desc",
 ) -> dict[str, Any]:
     """Read entries back out of a profile: what was logged, when, and how much.
 
@@ -160,7 +168,7 @@ async def log_session(
     profile: str,
     items: list[dict[str, Any]],
     when: str | None = None,
-    mode: str = "auto",
+    mode: Literal["auto", "new-block", "append-to-existing"] = "auto",
     dry_run: bool = False,
 ) -> dict[str, Any]:
     """Append a dated session to a `dated-block` profile, such as a training log.
@@ -202,7 +210,7 @@ async def set_grid_value(
     column: str,
     value: float | str,
     when: str | None = None,
-    mode: str = "set",
+    mode: Literal["set", "increment"] = "set",
     dry_run: bool = False,
 ) -> dict[str, Any]:
     """Record time against one activity on one day in a `grid` profile.

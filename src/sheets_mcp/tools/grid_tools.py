@@ -34,6 +34,10 @@ _SCAN_RANGE = "A:N"
 _DURATION_TYPES = (ValueType.DURATION_TALLY, ValueType.DURATION_HOURS)
 
 
+# Also declared as a Literal on the tool, so MCP publishes it as an enum. Named
+# once here so the schema and this check cannot drift apart.
+_MODES = ("set", "increment")
+
 async def set_grid_value(
     runtime: Runtime,
     profile_name: str,
@@ -45,7 +49,7 @@ async def set_grid_value(
     dry_run: bool = False,
 ) -> dict[str, Any]:
     profile = _require_grid(runtime, profile_name)
-    if mode not in ("set", "increment"):
+    if mode not in _MODES:
         raise ValidationError(f"mode must be 'set' or 'increment', not {mode!r}")
 
     target = _resolve_date(when, profile, runtime)

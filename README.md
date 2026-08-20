@@ -163,6 +163,17 @@ exercises in every future query. Nothing errors. The data just quietly forks.
 It also returns `current_period_exists`, so the model creates a missing month block
 *before* a write instead of interpreting a failure afterwards.
 
+### Constrained arguments are `Literal`, so the schema says so
+
+`mode` and `order` are declared as `Literal[...]`, which MCP publishes as a
+JSON-schema `enum` rather than "this is a string." The legal values move out of
+the docstring prose and into the schema the model's call is checked against, so
+an invalid one cannot be sent instead of being sent, rejected, and retried.
+
+This had drifted: the spec declared them that way and the implementation shipped
+plain strings, which worked — it just cost a round trip to say no. There are now
+tests comparing each published enum against the tuple the runtime check uses.
+
 ### Reads and corrections share one shape
 
 `query_rows` and `find_row` return a `cells` map keyed by column letter. `update_row`
@@ -299,7 +310,7 @@ that computed its answer separately would be reassurance about nothing.
 uv sync
 cp .env.example .env     # MCP_API_KEY, GOOGLE_SERVICE_ACCOUNT_KEY, the two sheet ids
 
-uv run pytest      # 257 tests
+uv run pytest      # 263 tests
 uv run mypy        # --strict, src and tests
 uv run ruff check
 
@@ -324,7 +335,7 @@ systemd + Caddy setup for a VPS. Both are documented in the spec.
 
 ## Testing
 
-257 tests, no network. The layout scanners and write planners are pure, so the
+263 tests, no network. The layout scanners and write planners are pure, so the
 interesting cases — a stray row without a header, a February block, a label that moved
 between months, a date row that would merge two sessions — are fixtures rather than
 integration tests.
